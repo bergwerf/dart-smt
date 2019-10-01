@@ -1,0 +1,10 @@
+name:         smt
+version:      0.0.0
+author:       Herman Bergwerf <hermanbergwerf@gmail.com>
+description:  SMT solver
+homepage:     https://github.com/bergwerf/dart-smt
+environment:
+  sdk:        '>=2.2.0 <3.0.0'
+
+dev_dependencies:
+  test:       any
