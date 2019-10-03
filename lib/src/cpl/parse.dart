@@ -54,7 +54,7 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
 
   CplTerm top() {
     if (queue.isEmpty) {
-      throw const CplException('no tuple to close');
+      throw const CplException('queue is empty');
     } else {
       return queue.last;
     }
@@ -101,7 +101,7 @@ List<CplToken> tokenizeCpl(String input) {
   final nameRe = RegExp(r'[^()\s]+');
   final tokens = <CplToken>[];
 
-  for (var i = 0, ln = 0, lnOffset = 0; i < input.length; i++) {
+  for (var i = 0, ln = 1, lnOffset = 0; i < input.length; i++) {
     // Skip any whitespace (not newlines since we count these).
     i = whitespaceRe.matchAsPrefix(input, i)?.end ?? i;
     if (i == input.length) {

@@ -8,4 +8,5 @@ library smt.cpl;
 part 'src/cpl/utils.dart';
 part 'src/cpl/expr.dart';
 part 'src/cpl/parse.dart';
+part 'src/cpl/macros.dart';
 part 'src/cpl/compile.dart';

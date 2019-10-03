@@ -9,7 +9,11 @@ part of smt.sat;
 /// efficiently using hash tables.
 class Clause {
   final Set<int> tVars, fVars;
+
   Clause(this.tVars, this.fVars);
+
+  /// Get clause size.
+  int get size => tVars.length + fVars.length;
 
   /// Check if this clause is empty.
   bool get isEmpty => tVars.isEmpty && fVars.isEmpty;
@@ -34,12 +38,13 @@ class Clause {
 class CNF {
   final List<Clause> clauses;
   final List<int> variables;
-
-  /// This is metadata. It is ok to supply null to save memory in recursion.
   final Map<int, String> labels;
 
   CNF(this.clauses, [this.labels, List<int> variables])
       : variables = variables ?? getVariablesInCNF(clauses);
+
+  /// Compute size (summed size of all clauses).
+  int get size => clauses.fold(0, (n, c) => n + c.size);
 
   /// Check if this CNF is empty.
   bool get isEmpty => clauses.isEmpty;
@@ -95,11 +100,15 @@ bool evaluateCNF(CNF cnf, Map<int, bool> assignment) {
 
 /// Compile CPL in [input] and build CNF.
 CNF compileCplToCNF(String input, [Map<String, bool> assignments]) {
-  final expr = compileCpl(input, assignments);
-  final clauseExprs = convertExprToCNF(rewriteToNNF(unfoldImply(expr)));
-  final lm = <String, int>{};
-  final clauses = clauseExprs.map((c) => convertExprToClause(lm, c)).toList();
-  final labels = lm.map((k, v) => MapEntry(v, k));
+  // Compile input and convert to CNF.
+  final rawExpr = compileCpl(input, assignments);
+  final nnfExpr = rewriteToNNF(unfoldImply(rawExpr));
+  final cnf = convertExprToCNFByProducts(nnfExpr);
+
+  // Convert CNF expression to CNF instance.
+  final labelMap = <String, int>{};
+  final clauses = cnf.map((c) => convertExprToClause(labelMap, c)).toList();
+  final labels = labelMap.map((k, v) => MapEntry(v, k));
   return CNF(clauses, labels);
 }
 

@@ -24,6 +24,8 @@ Expr compileCplTerms(List<CplTerm> terms, Map<String, bool> assignment) {
     throw CplException('macro ${dup.first.key} is already defined');
   }
 
+  // Apply defined macros and then the standard macros.
+  macros.insertAll(0, standardMacros);
   return convertCplTermToExpr(applyMacros(terms.last, macros), assignment);
 }
 

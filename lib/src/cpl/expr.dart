@@ -49,10 +49,16 @@ class Expr {
 Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
   switch (term.type) {
     case CplTermType.name:
+      // Check for macro references.
       if (term.name.startsWith('#')) {
-        throw CplException('found macro reference ${term.name}');
+        throw CplException('unknown macro reference ${term.name}');
       }
       return Expr(ExprType.variable, [], term.name);
+
+    case CplTermType.number:
+      // Convert number to string (some variables are composed of numbers, for
+      // example `(_ a 1)` is converted to `a_1`).
+      return Expr(ExprType.variable, [], '${term.number}');
 
     case CplTermType.tuple:
       // Generate all sub-terms.
@@ -72,24 +78,39 @@ Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
 
         case 'not':
         case '~':
+          cplAssert(() => subTerms.length == 1);
           return Expr(ExprType.not, subTerms);
 
         case 'imply':
         case '->':
+          cplAssert(() => subTerms.length == 2);
           return Expr(ExprType.imply, subTerms);
 
         case 'iff':
         case '<->':
+          cplAssert(() => subTerms.length >= 2);
           return Expr(ExprType.iff, subTerms);
 
         case '_':
+          cplAssert(() => subTerms.isNotEmpty);
+          cplAssert(() => subTerms.every((t) => t.type == ExprType.variable));
+          final label = subTerms.map((t) => t.label).join('_');
+          return Expr(ExprType.variable, [], label);
+
         case '?':
-          throw new UnimplementedError();
+          cplAssert(() => subTerms.length == 1);
+          cplAssert(() => subTerms[0].type == ExprType.variable);
+          if (assignment != null && assignment.containsKey(subTerms[0].label)) {
+            final isTrue = assignment[subTerms[0].label];
+            return isTrue ? subTerms[0] : Expr(ExprType.not, subTerms);
+          } else {
+            throw CplException('no assignment for ${subTerms[0].label}');
+          }
       }
       throw const CplException('unknown format');
 
-    default: // CplTermType.number
-      throw const CplException('a boolean expression may not contain numbers');
+    default: // null
+      throw const CplException('null term');
   }
 }
 
@@ -144,25 +165,30 @@ Expr rewriteToNNF(Expr x) {
 }
 
 /// Convert [expr] to a list of disjunctive clauses using the distributive law
-/// assuming it is already in negation normal form.
-List<Expr> convertExprToCNF(Expr expr) {
+/// assuming it is already in negation normal form (the disjunction of two
+/// conjunctions is essentially the cartesian product between both sets of
+/// literals). Note that the size of the resulting formula may be exponentially
+/// larger.
+List<Expr> convertExprToCNFByProducts(Expr expr) {
   switch (expr.type) {
     case ExprType.variable:
     case ExprType.not:
       return [expr];
 
     case ExprType.and:
-      return expr.arguments.expand(convertExprToCNF).toList();
+      return expr.arguments.expand(convertExprToCNFByProducts).toList();
 
     case ExprType.or:
-      final cnfs = expr.arguments.map(convertExprToCNF).toList();
+      final cnfs = expr.arguments.map(convertExprToCNFByProducts).toList();
       if (cnfs.isNotEmpty) {
-        // Combine (A1&A2)|(B1&B2) == (A1|B1)&(A1|B2)&(A2|B1)&(A2|B2)
-        return cnfs.reduce((cnfA, cnfB) => cnfA
-            .expand((clauseA) => cnfB
-                .map((clauseB) => Expr(ExprType.or, [clauseA, clauseB]))
-                .toList())
-            .toList());
+        // (A1&A2)|(B1&B2) <-> (A1|B1)&(A1|B2)&(A2|B1)&(A2|B2)
+        return cnfs.reduce((cnfA, cnfB) {
+          return cnfA.expand((clauseA) {
+            return cnfB.map((clauseB) {
+              return Expr(ExprType.or, [clauseA, clauseB]);
+            }).toList();
+          }).toList();
+        });
       }
       return [];
 
