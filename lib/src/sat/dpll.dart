@@ -4,26 +4,55 @@
 
 part of smt.sat;
 
-/// Davis-Putnam procedure (1960) for deciding SAT
+enum SatResult { sat, unsat }
+
+/// The Davis-Putnam-Logemann-Loveland method (1962) for deciding SAT
+///
+/// DPLL method:
+/// + Apply unit resolution.
+/// + Check for empty clause (UNSAT) or no clauses (SAT).
+/// + Choose a variable p.
+/// + Try DPLL with extra clause {p} and return SAT if it returns SAT.
+/// + Return the result of DPLL with extra clause {~p}.
+SatResult checkSatByDPLL(CNF cnf) {
+  applyUnitResolution(cnf);
+  if (cnf.isEmpty) {
+    return SatResult.sat;
+  } else if (cnf.hasEmptyClause) {
+    return SatResult.unsat;
+  } else {
+    final p = cnf.variables.first;
+    final cnf1 = copyCNF(cnf);
+    cnf1.clauses.add(Clause({p}, {}));
+    if (checkSatByDPLL(cnf1) == SatResult.sat) {
+      return SatResult.sat;
+    } else {
+      final cnf2 = copyCNF(cnf);
+      cnf2.clauses.add(Clause({}, {p}));
+      return checkSatByDPLL(cnf2);
+    }
+  }
+}
+
+/// The Davis-Putnam procedure (1960) for deciding SAT
+///
+/// DP procedure:
+/// + Choose a variable p.
+/// + Apply resolution on all pairs V, W such that p in V and ~p in W.
+/// + Remove all clauses containing q and ~q for some q.
+/// + Remove all clauses that contain p or ~p.
+///
+/// A truth assignment could be constructed by keeping intermediary CNFs and
+/// applying unit resolution backwards (before eliminating all clauses we have
+/// some singleton clauses).
 SatResult checkSatByDP(CNF cnf) {
   // Note that neither unit resolution nor intelligent resolution produce new
-  // trivial clauses. Therefore we only have to do this once.
+  // trivial clauses. Therefore we only have to do this once. We also apply
+  // subsumption once to remove duplicate clauses in the input.
   removeTrivialClauses(cnf);
-
-  // Subsumption is expensive, so we only apply it once to remove duplicates.
   applySubsumption(cnf);
 
-  // We start with unit resolution and apply it again after each resolution.
-  applyUnitResolution(cnf);
-  if (cnf.hasEmptyClause) {
-    return SatResult.unsat;
-  }
-
-  // DP procedure:
-  // + Choose a variable p.
-  // + Apply resolution on all pairs V, W such that p in V and ~p in W.
-  // + Remove all clauses containing q and ~q for some q.
-  // + Remove all clauses that contain p or ~p.
+  // Follow procedure.
   for (var i = 0; i < cnf.variables.length; i++) {
     final p = cnf.variables[i];
 
@@ -35,6 +64,7 @@ SatResult checkSatByDP(CNF cnf) {
       if (!(clauseA.tVars.contains(p) || clauseA.fVars.contains(p))) {
         continue;
       }
+
       // Try resolution with all next clauses.
       for (var b = a + 1; b < len; b++) {
         final clause = tryResolution(cnf.clauses[a], cnf.clauses[b], p);
@@ -50,6 +80,7 @@ SatResult checkSatByDP(CNF cnf) {
           }
         }
       }
+
       // Remove this clause since it contains p or ~p.
       cnf.clauses.removeAt(a);
       len--;
@@ -58,44 +89,8 @@ SatResult checkSatByDP(CNF cnf) {
   }
 
   // We eliminated all variables.
-  assert(cnf.clauses.isEmpty);
+  assert(cnf.isEmpty);
   return SatResult.sat;
-}
-
-/// If a clause contains only one literal, then it fixes the assignment for that
-/// literal. The negation of this literal can be removed from all clauses. Any
-/// clause that contains this literal is automatically true and can also be
-/// removed (this is called subsumption).
-void applyUnitResolution(CNF cnf) {
-  for (var i = 0; i < cnf.clauses.length; i++) {
-    final c = cnf.clauses[i];
-    if (c.tVars.length + c.fVars.length == 1) {
-      // Check if this is a negation and remove the i-th clause.
-      final negation = c.fVars.contains(i);
-      final variable = c.tVars.union(c.fVars).single;
-      cnf.clauses.removeAt(i);
-      i--;
-
-      // Remove clauses that contain this literal.
-      for (var j = 0; j < cnf.clauses.length; j++) {
-        final clause = cnf.clauses[j];
-        if (clause.containsLiteral(negation, variable)) {
-          cnf.clauses.removeAt(j);
-          i -= j <= i ? 1 : 0;
-          j--;
-        }
-      }
-
-      // Remove inverted literal from all clauses.
-      for (final clause in cnf.clauses) {
-        clause.removeLiteral(!negation, variable);
-      }
-
-      // Remove variable from CNF variable list.
-      assert(!getVariablesInCNF(cnf.clauses).contains(variable));
-      cnf.variables.remove(variable);
-    }
-  }
 }
 
 /// Try to apply resolution on clauses [p] and [q] with respect to variable [v]
@@ -114,6 +109,43 @@ Clause tryResolution(Clause p, Clause q, int v) {
   }
   // If no resolution is possible or the result is trivially true, return null.
   return null;
+}
+
+/// If a clause contains only one literal, then it fixes the assignment for that
+/// literal. The negation of this literal can be removed from all clauses. Any
+/// clause that contains this literal is automatically true and can also be
+/// removed (this is called subsumption).
+void applyUnitResolution(CNF cnf) {
+  for (var i = 0; i < cnf.clauses.length; i++) {
+    final c = cnf.clauses[i];
+    if (c.tVars.length + c.fVars.length == 1) {
+      // Check if this is a negation and remove the i-th clause.
+      final negation = c.fVars.isNotEmpty;
+      final variable = negation ? c.fVars.single : c.tVars.single;
+      cnf.clauses.removeAt(i);
+
+      // Remove clauses that contain this literal.
+      for (var j = 0; j < cnf.clauses.length; j++) {
+        final clause = cnf.clauses[j];
+        if (clause.containsLiteral(negation, variable)) {
+          cnf.clauses.removeAt(j);
+          j--;
+        }
+      }
+
+      // Remove inverted literal from all clauses.
+      for (final clause in cnf.clauses) {
+        clause.removeLiteral(!negation, variable);
+      }
+
+      // Remove variable from CNF variable list.
+      assert(!getVariablesInCNF(cnf.clauses).contains(variable));
+      cnf.variables.remove(variable);
+
+      // We may have created new singleton clauses.
+      i = 0;
+    }
+  }
 }
 
 /// Apply subsumption to [cnf].

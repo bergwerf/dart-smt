@@ -68,9 +68,10 @@ const arithmeticMacros = '''
 ''';
 
 void main() {
-  test('checkSATByResolution', () {
+  test('checkSatByDP(LL)', () {
     /// Solve the problem of the non-smoking student advisors.
     final cnf = compileCplToCNF(nonSmokingStudentAdvisors);
-    expect(checkSatByDP(cnf), equals(SatResult.unsat));
+    expect(checkSatByDP(copyCNF(cnf)), equals(SatResult.unsat));
+    expect(checkSatByDPLL(copyCNF(cnf)), equals(SatResult.unsat));
   });
 }

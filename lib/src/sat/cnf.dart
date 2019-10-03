@@ -4,8 +4,6 @@
 
 part of smt.sat;
 
-enum SatResult { sat, unsat }
-
 /// A clause is a disjunction of literals where each literal is either a
 /// variable or a negation of a variable. Here we represent these more
 /// efficiently using hash tables.
@@ -21,7 +19,7 @@ class Clause {
 
   /// Check if this clause contains the literal [negation] of [variable].
   bool containsLiteral(bool negation, int variable) =>
-      (negation ? fVars : tVars).contains(variable);
+      negation ? fVars.contains(variable) : tVars.contains(variable);
 
   /// Check if this clause is a subset or equal to [other].
   bool containsClause(Clause other) =>
@@ -29,7 +27,7 @@ class Clause {
 
   /// Remove literal [negation] of [variable].
   void removeLiteral(bool negation, int variable) =>
-      (negation ? fVars : tVars).remove(variable);
+      negation ? fVars.remove(variable) : tVars.remove(variable);
 }
 
 /// A formula in Conjunctive Normal Form
@@ -40,7 +38,11 @@ class CNF {
   /// This is metadata. It is ok to supply null to save memory in recursion.
   final Map<int, String> labels;
 
-  CNF(this.clauses, this.labels) : variables = getVariablesInCNF(clauses);
+  CNF(this.clauses, [this.labels, List<int> variables])
+      : variables = variables ?? getVariablesInCNF(clauses);
+
+  /// Check if this CNF is empty.
+  bool get isEmpty => clauses.isEmpty;
 
   /// Check if there is an empty clause.
   bool get hasEmptyClause => clauses.any((c) => c.isEmpty);
@@ -57,6 +59,12 @@ class CNF {
     }).join('\n');
   }
 }
+
+/// Create full copy of [cnf].
+CNF copyCNF(CNF cnf) => CNF(
+    cnf.clauses.map((c) => Clause(c.tVars.toSet(), c.fVars.toSet())).toList(),
+    cnf.labels, // Not modified so no copy needed.
+    cnf.variables.toList());
 
 /// Compute list of unique variables in [clauses].
 List<int> getVariablesInCNF(List<Clause> clauses) {
