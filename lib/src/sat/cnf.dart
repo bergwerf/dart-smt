@@ -8,30 +8,30 @@ part of smt.sat;
 /// variable or a negation of a variable. Here we represent these more
 /// efficiently using hash tables.
 class Clause {
-  final Set<int> tVars, fVars;
+  final Set<int> pos, neg;
 
-  Clause(this.tVars, this.fVars);
+  Clause(this.pos, this.neg);
 
   /// Get clause size.
-  int get size => tVars.length + fVars.length;
+  int get size => pos.length + neg.length;
 
   /// Check if this clause is empty.
-  bool get isEmpty => tVars.isEmpty && fVars.isEmpty;
+  bool get isEmpty => pos.isEmpty && neg.isEmpty;
 
   /// Check if this clause contains [v].
-  bool containsVariable(int v) => tVars.contains(v) || fVars.contains(v);
+  bool containsVariable(int v) => pos.contains(v) || neg.contains(v);
 
-  /// Check if this clause contains the literal [negation] of [variable].
-  bool containsLiteral(bool negation, int variable) =>
-      negation ? fVars.contains(variable) : tVars.contains(variable);
+  /// Check if this clause contains the literal [positive] [variable].
+  bool containsLiteral(bool positive, int variable) =>
+      positive ? pos.contains(variable) : neg.contains(variable);
 
   /// Check if this clause is a subset or equal to [other].
   bool containsClause(Clause other) =>
-      other.tVars.containsAll(tVars) && other.fVars.containsAll(fVars);
+      other.pos.containsAll(pos) && other.neg.containsAll(neg);
 
-  /// Remove literal [negation] of [variable].
-  void removeLiteral(bool negation, int variable) =>
-      negation ? fVars.remove(variable) : tVars.remove(variable);
+  /// Remove literal [positive] [variable].
+  void removeLiteral(bool positive, int variable) =>
+      positive ? pos.remove(variable) : neg.remove(variable);
 }
 
 /// A formula in Conjunctive Normal Form
@@ -57,8 +57,8 @@ class CNF {
     String lbl(int i) => labels[i] ?? '?$i';
     return clauses.map((c) {
       final literals = [
-        c.tVars.map(lbl), //
-        c.fVars.map(lbl).map((s) => '~$s')
+        c.pos.map(lbl), //
+        c.neg.map(lbl).map((s) => '~$s')
       ].expand((l) => l);
       return '{${literals.join(' ')}}';
     }).join('\n');
@@ -67,13 +67,13 @@ class CNF {
 
 /// Create full copy of [cnf].
 CNF copyCNF(CNF cnf) => CNF(
-    cnf.clauses.map((c) => Clause(c.tVars.toSet(), c.fVars.toSet())).toList(),
+    cnf.clauses.map((c) => Clause(c.pos.toSet(), c.neg.toSet())).toList(),
     cnf.labels, // Not modified so no copy needed.
     cnf.variables.toList());
 
 /// Compute list of unique variables in [clauses].
 List<int> getVariablesInCNF(List<Clause> clauses) {
-  return clauses.expand((c) => c.tVars.union(c.fVars)).toSet().toList();
+  return clauses.expand((c) => c.pos.union(c.neg)).toSet().toList();
 }
 
 /// Evaluate [cnf] for the given [assignment] (for testing purposes).
@@ -81,12 +81,12 @@ bool evaluateCNF(CNF cnf, Map<int, bool> assignment) {
   // Check if every clause is true, else return false.
   CLAUSES:
   for (final c in cnf.clauses) {
-    for (final v in c.tVars) {
+    for (final v in c.pos) {
       if (assignment[v]) {
         continue CLAUSES;
       }
     }
-    for (final v in c.fVars) {
+    for (final v in c.neg) {
       if (!assignment[v]) {
         continue CLAUSES;
       }

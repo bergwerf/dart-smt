@@ -77,7 +77,7 @@ SatResult checkSatByDP(CNF cnf) {
     for (var a = 0; a < len; a++) {
       // Check if the a-th clause contains p or ~p.
       final clauseA = cnf.clauses[a];
-      if (!(clauseA.tVars.contains(p) || clauseA.fVars.contains(p))) {
+      if (!(clauseA.pos.contains(p) || clauseA.neg.contains(p))) {
         continue;
       }
 
@@ -113,12 +113,12 @@ SatResult checkSatByDP(CNF cnf) {
 /// and check if the resulting clause is trivially true.
 Clause tryResolution(Clause p, Clause q, int v) {
   // Check if one clause contains v and the other ~v.
-  if ((p.tVars.contains(v) && q.fVars.contains(v)) ||
-      (p.fVars.contains(v) && q.tVars.contains(v))) {
+  if ((p.pos.contains(v) && q.neg.contains(v)) ||
+      (p.neg.contains(v) && q.pos.contains(v))) {
     // Check if the disjunction is trivially true.
-    final disjunction = Clause(p.tVars.union(q.tVars), p.fVars.union(q.fVars));
-    disjunction.tVars.remove(v);
-    disjunction.fVars.remove(v);
+    final disjunction = Clause(p.pos.union(q.pos), p.neg.union(q.neg));
+    disjunction.pos.remove(v);
+    disjunction.neg.remove(v);
     if (!isTriviallyTrue(disjunction)) {
       return disjunction;
     }
@@ -135,21 +135,21 @@ Clause tryResolution(Clause p, Clause q, int v) {
 void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
   for (var i = 0; i < cnf.clauses.length; i++) {
     final c = cnf.clauses[i];
-    if (c.tVars.length + c.fVars.length == 1) {
-      // Check if this is a negation and remove the i-th clause.
-      final negation = c.fVars.isNotEmpty; // TODO: Use `positive`.
-      final variable = negation ? c.fVars.single : c.tVars.single;
+    if (c.pos.length + c.neg.length == 1) {
+      // Check if this is a positive literal and remove the i-th clause.
+      final positive = c.pos.isNotEmpty;
+      final variable = positive ? c.pos.single : c.neg.single;
       cnf.clauses.removeAt(i);
 
       // If an assignment map is given, store an assignment for this variable.
       if (assignment != null) {
-        assignment[variable] = !negation;
+        assignment[variable] = positive;
       }
 
       // Remove clauses that contain this literal.
       for (var j = 0; j < cnf.clauses.length; j++) {
         final clause = cnf.clauses[j];
-        if (clause.containsLiteral(negation, variable)) {
+        if (clause.containsLiteral(positive, variable)) {
           cnf.clauses.removeAt(j);
           j--;
         }
@@ -157,7 +157,7 @@ void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
 
       // Remove inverted literal from all clauses.
       for (final clause in cnf.clauses) {
-        clause.removeLiteral(!negation, variable);
+        clause.removeLiteral(!positive, variable);
       }
 
       // Remove variable from CNF variable list.
@@ -180,7 +180,7 @@ void applySubsumption(CNF cnf) {
 
 /// Check if [clause] is trivially true (if it contains P and ~P for some P).
 bool isTriviallyTrue(Clause clause) {
-  return clause.tVars.intersection(clause.fVars).isNotEmpty;
+  return clause.pos.intersection(clause.neg).isNotEmpty;
 }
 
 /// Clauses that contain both P and ~P for some variable P can be removed.
