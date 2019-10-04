@@ -36,7 +36,7 @@ SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
   } else {
     // Choose a variable p.
     final p = cnf.variables.first;
-    // Copy CNF and assingment for first search branch.
+    // Copy CNF and assignment for first search branch.
     final cnf1 = copyCNF(cnf)..clauses.add(Clause({p}, {}));
     final assign1 = assign == null ? null : Map.of(assign);
     final result = checkSatByDPLL(cnf1, assign: assign1);
@@ -60,7 +60,7 @@ SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
 ///
 /// A truth assignment could be constructed by keeping intermediary CNFs and
 /// applying unit resolution backwards (before eliminating all clauses we have
-/// some singleton clauses).
+/// only unit clauses left).
 SatResult checkSatByDP(CNF cnf) {
   // Note that neither unit resolution nor intelligent resolution produce new
   // trivial clauses. Therefore we only have to do this once. We also apply
@@ -89,9 +89,9 @@ SatResult checkSatByDP(CNF cnf) {
           if (clause.isEmpty) {
             return SatResult.unsat();
           } else {
-            // It is possible we derived a singleton clause {q}, and in this
-            // case we could apply unit resolution here. It is not clear if this
-            // would generate a significant advantage.
+            // It is possible we derived a unit clause {q}, and in this case we
+            // could apply unit resolution here. It is not clear if this would
+            // generate a significant advantage.
             cnf.clauses.add(clause);
           }
         }
@@ -128,10 +128,10 @@ Clause tryResolution(Clause p, Clause q, int v) {
 }
 
 /// If a clause contains only one literal, then it fixes the assignment for that
-/// literal. The negation of this literal can be removed from all clauses. Any
-/// clause that contains this literal is automatically true and can also be
-/// removed (subsumption). If [assignment] is not null, then any singleton
-/// clauses will be stored in there.
+/// literal. The negation of this literal is removed from all clauses. Any
+/// clause that contains this literal is automatically true and is removed
+/// (subsumption). If [assignment] is not null, then any unit clauses will be
+/// stored in there.
 void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
   for (var i = 0; i < cnf.clauses.length; i++) {
     final c = cnf.clauses[i];
@@ -164,7 +164,7 @@ void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
       assert(!getVariablesInCNF(cnf.clauses).contains(variable));
       cnf.variables.remove(variable);
 
-      // We may have created new singleton clauses.
+      // We may have created new unit clauses.
       i = 0;
     }
   }

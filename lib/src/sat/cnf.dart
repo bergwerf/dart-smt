@@ -98,32 +98,25 @@ bool evaluateCNF(CNF cnf, Map<int, bool> assignment) {
   return true;
 }
 
-/// Compile CPL in [input] and build CNF.
-CNF compileCplToCNF(String input, [Map<String, bool> assignments]) {
-  // Compile input and convert to CNF.
-  final rawExpr = compileCpl(input, assignments);
-  final nnfExpr = rewriteToNNF(unfoldImply(rawExpr));
-  final cnf = convertExprToCNFByProducts(nnfExpr);
-
-  // Convert CNF expression to CNF instance.
-  final labelMap = <String, int>{};
-  final clauses = cnf.map((c) => convertExprToClause(labelMap, c)).toList();
-  final labels = labelMap.map((k, v) => MapEntry(v, k));
-  return CNF(clauses, labels);
+/// Convert list of [clauses] to CNF instance.
+CNF convertClausesToCNF(List<Expr> clauses) {
+  final lm = <String, int>{};
+  final cl = clauses.map((c) => convertExprToClause(lm, c)).toList();
+  return CNF(cl, invertMap(lm));
 }
 
-/// Convert disjunction in [expr] to clause.
+/// Convert disjunction in [expr] to a [Clause].
 Clause convertExprToClause(Map<String, int> labelMap, Expr expr) {
   final literals = flattenExpr(ExprType.or, expr);
-  final tVars = literals.where((l) => l.type == ExprType.variable);
-  final fVars = literals.where((l) => l.type == ExprType.not);
+  final pos = literals.where((l) => l.isVariable);
+  final neg = literals.where((l) => l.isNot).map((l) => l.arguments[0]);
+  return Clause(_toSet(labelMap, pos), _toSet(labelMap, neg));
+}
 
-  Set<int> toSet(Iterable<Expr> xs) {
-    return xs.map((x) {
-      final label = x.type == ExprType.not ? x.arguments[0].label : x.label;
-      return labelMap.putIfAbsent(label, () => labelMap.length);
-    }).toSet();
-  }
-
-  return Clause(toSet(tVars), toSet(fVars));
+/// Subroutine of [convertExprToClause], convert variables to set of integers.
+Set<int> _toSet(Map<String, int> labelMap, Iterable<Expr> xs) {
+  return xs.map((x) {
+    assert(x.isVariable);
+    return labelMap.putIfAbsent(x.label, () => labelMap.length);
+  }).toSet();
 }

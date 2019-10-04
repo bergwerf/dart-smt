@@ -10,3 +10,22 @@ part 'src/cpl/expr.dart';
 part 'src/cpl/parse.dart';
 part 'src/cpl/macros.dart';
 part 'src/cpl/compile.dart';
+part 'src/cpl/transform.dart';
+
+/// Utility to compile CPL code in [input] given some [assignments], and
+/// transform it to a CNF using either products or a Tseytin transformation.
+List<Expr> compileCplToCnf(String input,
+    {Map<String, bool> assignments, bool tseytin: false}) {
+  // Parse CPL and compile it to an expression.
+  final terms = parseCpl(tokenizeCpl(input));
+  final expr = compileCplTerms(terms, assignments);
+
+  // Transform to CNF clauses.
+  if (tseytin) {
+    final bonf = rewriteAnyToBonf(expr);
+    return transformBonfTo3CnfWithTseytin(bonf);
+  } else {
+    final nnf = rewriteCdnnfToNnf(rewriteAnyToCdnnf(expr));
+    return transformNnfToCnfWithProducts(nnf);
+  }
+}

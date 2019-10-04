@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style license
 // that can be found in the LICENSE file.
 
+import 'package:smt/cpl.dart';
 import 'package:smt/sat.dart';
 import 'package:test/test.dart';
 
@@ -68,26 +69,32 @@ const arithmeticMacros = r'''
 ))
 ''';
 
-CNF buildBinaryAdditionCNF(int a, int b, int n) {
+/// Shorthand to compile [input] to a CNF instance.
+CNF compileCNF(String input, {Map<String, bool> assign, bool tseytin: false}) {
+  final clauses = compileCplToCnf(input, assignments: assign, tseytin: tseytin);
+  return convertClausesToCNF(clauses);
+}
+
+/// Build CNF that represents an [n]-bit binary addition of [a] and [b].
+CNF buildBinaryAddCNF(int a, int b, int n) {
   // Generate assignment for bits in a and b.
   final assignment = <String, bool>{};
   for (var i = 0; i < n; i++) {
     assignment['a_${n - i}'] = ((a >> i) & 1) == 1;
     assignment['b_${n - i}'] = ((b >> i) & 1) == 1;
   }
-  // Compile problem.
-  return compileCplToCNF('$arithmeticMacros (add $n a b)', assignment);
+  return compileCNF('$arithmeticMacros (add $n a b)', assign: assignment);
 }
 
 void main() {
   test('checkSatByDP(LL)', () {
     // Solve the problem of the non-smoking student advisors.
-    final cnf1 = compileCplToCNF(nonSmokingStudentAdvisors);
+    final cnf1 = compileCNF(nonSmokingStudentAdvisors);
     expect(checkSatByDP(copyCNF(cnf1)).satisfiable, isFalse);
     expect(checkSatByDPLL(copyCNF(cnf1)).satisfiable, isFalse);
 
     // Solve binary addition with DP.
-    final cnf2 = buildBinaryAdditionCNF(42, 24, 8);
+    final cnf2 = buildBinaryAddCNF(42, 24, 8);
     expect(checkSatByDP(copyCNF(cnf2)).satisfiable, isTrue);
 
     // Solve binary addition with DPLL and check resulting assignment.

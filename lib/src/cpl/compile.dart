@@ -4,11 +4,8 @@
 
 part of smt.cpl;
 
-typedef CplTerm CplMacro(List<CplTerm> arguments);
-
-Expr compileCpl(String input, [Map<String, bool> assignment]) =>
-    compileCplTerms(parseCpl(tokenizeCpl(input)), assignment);
-
+/// Compile a list of [terms] where all terms are macros except for the last one
+/// which must be a formula (which is returned).
 Expr compileCplTerms(List<CplTerm> terms, Map<String, bool> assignment) {
   // We need at least one term.
   if (terms.isEmpty) {
@@ -24,9 +21,17 @@ Expr compileCplTerms(List<CplTerm> terms, Map<String, bool> assignment) {
     throw CplException('macro ${dup.first.key} is already defined');
   }
 
-  // Apply defined macros and then the standard macros.
+  // Add standard macros.
   macros.insertAll(0, standardMacros);
-  return convertCplTermToExpr(applyMacros(terms.last, macros), assignment);
+
+  // Apply macros in LIFO order (such that any macro can only use macros that
+  // were defined before it). Note that this makes recursion impossible (thus
+  // CPL is not Turing complete).
+  final result = macros.reversed.fold(
+      terms.last, (term, macro) => applyMacro(macro.key, macro.value, term));
+
+  // Convert final term to expression.
+  return convertCplTermToExpr(result, assignment);
 }
 
 /// Compile macro definition in [term] and return it.
@@ -50,13 +55,6 @@ MapEntry<String, CplMacro> compileMacro(CplTerm term) {
   }
 
   return MapEntry(macroName, macro);
-}
-
-/// Apply all [macros] to [term] such that no recursion is possible.
-CplTerm applyMacros(CplTerm term, List<MapEntry<String, CplMacro>> macros) {
-  // We apply macros in LIFO order.
-  return macros.reversed
-      .fold(term, (t, macro) => applyMacro(macro.key, macro.value, t));
 }
 
 /// Apply [macro] with [name] to [term] using recursion. If a term is found to

@@ -4,6 +4,9 @@
 
 part of smt.cpl;
 
+/// Macro format
+typedef CplTerm CplMacro(List<CplTerm> arguments);
+
 /// Standard macros include:
 /// + `(/\* index from to body)` or `(and* . . . .)`
 /// + `(sub . .)`
@@ -14,6 +17,7 @@ const standardMacros = <MapEntry<String, CplMacro>>[
   const MapEntry(r'/\*', applyIndexedAnd)
 ];
 
+/// Apply conjunction over a range of indices.
 CplTerm applyIndexedAnd(List<CplTerm> arguments) {
   cplAssert(() => arguments.length == 4);
   cplAssert(() => arguments.sublist(1, 3).every((a) => a.isNumber));
@@ -31,6 +35,7 @@ CplTerm applyIndexedAnd(List<CplTerm> arguments) {
   return CplTerm(CplTermType.tuple, terms: subTerms);
 }
 
+/// Subtract two numbers.
 CplTerm computeSubtraction(List<CplTerm> arguments) {
   cplAssert(() => arguments.length == 2 && arguments.every((a) => a.isNumber));
   final result = arguments[0].number - arguments[1].number;
