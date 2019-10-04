@@ -8,6 +8,9 @@ part of smt.sat;
 /// before the creation of this CNF resulting in only [doubleClauses] and
 /// [tripleClauses].
 class CNF3 {
+  /// All variables.
+  final Set<int> variables;
+
   /// For any literal, store which literal is implied. This stores all double
   /// clauses. For any clause {p q}, the map contains ~p => q, ~q => p.
   final Map<int, int> doubleClauses;
@@ -20,7 +23,7 @@ class CNF3 {
   /// Variable labels
   final Map<int, String> labels;
 
-  CNF3(this.doubleClauses, this.tripleClauses, this.labels);
+  CNF3(this.variables, this.doubleClauses, this.tripleClauses, this.labels);
 }
 
 /// A pair of literals stored as signed integers where the sign means negation.
@@ -62,19 +65,22 @@ class OrderedLiteralPair {
 /// Convert list of [clauses] to a 3-CNF instance and convert all unit clauses
 /// to CDCL rules.
 Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
+  final variables = <int>{};
   final doubleClauses = <int, int>{};
   final tripleClauses = <OrderedLiteralPair, int>{};
   final labelMap = <String, int>{};
   final indexMap = <int, int>{};
   var vSeq = 0; // Variable identifier sequence
 
-  // Convert literal expression to integer.
+  // Convert literal expression to integer. Note that 0 cannot be used as
+  // variable identifier because 0 == -0.
   int convertLiteral(Expr x) {
     final n = x.isNot;
     final v = n ? x.arguments[0] : x;
     final i = v.index >= 0
         ? indexMap.putIfAbsent(v.index, () => ++vSeq)
         : labelMap.putIfAbsent(x.label, () => ++vSeq);
+    variables.add(i);
     return n ? -i : i;
   }
 
@@ -85,7 +91,7 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
     switch (l.length) {
       case 1:
         // Add CDCL rule.
-        rules.add(CDCLRule.unitPropagate(l[0]));
+        rules.add(CDCLRule.unitPropagate(l[0], -1, -1));
         break;
 
       case 2:
@@ -120,5 +126,7 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
   // because we do not know which implications are present. The only performance
   // improvement would be caused by the hash tables using less space, but I
   // don't think this is significant.
-  return Pair(CNF3(doubleClauses, tripleClauses, invertMap(labelMap)), rules);
+  final labels = invertMap(labelMap);
+  final cnf = CNF3(variables, doubleClauses, tripleClauses, labels);
+  return Pair(cnf, rules);
 }
