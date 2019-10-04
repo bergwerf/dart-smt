@@ -24,7 +24,7 @@ CplTerm applyIndexedAnd(List<CplTerm> arguments) {
 
   // Generate all items by substituting the index with a number.
   final subTerms = <CplTerm>[CplTerm(CplTermType.name, name: 'and')];
-  for (var i = from; i < to; i++) {
+  for (var i = from; i <= to; i++) {
     final iTerm = CplTerm(CplTermType.number, number: i);
     subTerms.add(substituteName(indexName, iTerm, body));
   }

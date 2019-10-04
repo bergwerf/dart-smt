@@ -8,4 +8,6 @@ library smt.sat;
 import 'package:smt/cpl.dart';
 
 part 'src/sat/cnf.dart';
+part 'src/sat/cnf3.dart';
 part 'src/sat/dpll.dart';
+part 'src/sat/cdcl.dart';

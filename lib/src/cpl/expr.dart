@@ -193,7 +193,7 @@ List<Expr> convertExprToCNFByProducts(Expr expr) {
       return [];
 
     default:
-      throw new ArgumentError('inavlid input form');
+      throw new ArgumentError('invalid input form');
   }
 }
 

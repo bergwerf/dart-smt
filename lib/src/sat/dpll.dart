@@ -2,11 +2,24 @@
 // Use of this source code is governed by a MIT-style license
 // that can be found in the LICENSE file.
 
+/// Note that this file contains two older algorithms for SAT problems: DP and
+/// DPLL. A faster and more space efficient algorithm is CDCL.
 part of smt.sat;
 
-enum SatResult { sat, unsat }
+class SatResult {
+  final bool satisfiable;
+  final Map<int, bool> assignment;
 
-/// The Davis-Putnam-Logemann-Loveland method (1962) for deciding SAT
+  SatResult(this.satisfiable, [this.assignment]);
+  SatResult.sat([this.assignment]) : satisfiable = true;
+  SatResult.unsat()
+      : satisfiable = false,
+        assignment = null;
+}
+
+/// Check if [cnf] is satisfiable using the Davis-Putnam-Logemann-Loveland
+/// method (1962). To get a variable assignment in the case of SAT, pass an
+/// empty map to [assign].
 ///
 /// DPLL method:
 /// + Apply unit resolution.
@@ -14,27 +27,30 @@ enum SatResult { sat, unsat }
 /// + Choose a variable p.
 /// + Try DPLL with extra clause {p} and return SAT if it returns SAT.
 /// + Return the result of DPLL with extra clause {~p}.
-SatResult checkSatByDPLL(CNF cnf) {
-  applyUnitResolution(cnf);
+SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
+  applyUnitResolution(cnf, assign);
   if (cnf.isEmpty) {
-    return SatResult.sat;
+    return SatResult.sat(assign);
   } else if (cnf.hasEmptyClause) {
-    return SatResult.unsat;
+    return SatResult.unsat();
   } else {
+    // Choose a variable p.
     final p = cnf.variables.first;
-    final cnf1 = copyCNF(cnf);
-    cnf1.clauses.add(Clause({p}, {}));
-    if (checkSatByDPLL(cnf1) == SatResult.sat) {
-      return SatResult.sat;
+    // Copy CNF and assingment for first search branch.
+    final cnf1 = copyCNF(cnf)..clauses.add(Clause({p}, {}));
+    final assign1 = assign == null ? null : Map.of(assign);
+    final result = checkSatByDPLL(cnf1, assign: assign1);
+    if (result.satisfiable) {
+      return result;
     } else {
-      final cnf2 = copyCNF(cnf);
-      cnf2.clauses.add(Clause({}, {p}));
-      return checkSatByDPLL(cnf2);
+      // Re-use CNF and assignment for second search branch.
+      final cnf2 = copyCNF(cnf)..clauses.add(Clause({}, {p}));
+      return checkSatByDPLL(cnf2, assign: assign);
     }
   }
 }
 
-/// The Davis-Putnam procedure (1960) for deciding SAT
+/// Check if [cnf] is satisfiable using the Davis-Putnam procedure (1960).
 ///
 /// DP procedure:
 /// + Choose a variable p.
@@ -71,7 +87,7 @@ SatResult checkSatByDP(CNF cnf) {
         if (clause != null) {
           // If we derive an empty clause the CNF is unsatisfiable.
           if (clause.isEmpty) {
-            return SatResult.unsat;
+            return SatResult.unsat();
           } else {
             // It is possible we derived a singleton clause {q}, and in this
             // case we could apply unit resolution here. It is not clear if this
@@ -90,7 +106,7 @@ SatResult checkSatByDP(CNF cnf) {
 
   // We eliminated all variables.
   assert(cnf.isEmpty);
-  return SatResult.sat;
+  return SatResult.sat();
 }
 
 /// Try to apply resolution on clauses [p] and [q] with respect to variable [v]
@@ -114,15 +130,21 @@ Clause tryResolution(Clause p, Clause q, int v) {
 /// If a clause contains only one literal, then it fixes the assignment for that
 /// literal. The negation of this literal can be removed from all clauses. Any
 /// clause that contains this literal is automatically true and can also be
-/// removed (this is called subsumption).
-void applyUnitResolution(CNF cnf) {
+/// removed (subsumption). If [assignment] is not null, then any singleton
+/// clauses will be stored in there.
+void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
   for (var i = 0; i < cnf.clauses.length; i++) {
     final c = cnf.clauses[i];
     if (c.tVars.length + c.fVars.length == 1) {
       // Check if this is a negation and remove the i-th clause.
-      final negation = c.fVars.isNotEmpty;
+      final negation = c.fVars.isNotEmpty; // TODO: Use `positive`.
       final variable = negation ? c.fVars.single : c.tVars.single;
       cnf.clauses.removeAt(i);
+
+      // If an assignment map is given, store an assignment for this variable.
+      if (assignment != null) {
+        assignment[variable] = !negation;
+      }
 
       // Remove clauses that contain this literal.
       for (var j = 0; j < cnf.clauses.length; j++) {

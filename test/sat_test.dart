@@ -83,12 +83,24 @@ void main() {
   test('checkSatByDP(LL)', () {
     // Solve the problem of the non-smoking student advisors.
     final cnf1 = compileCplToCNF(nonSmokingStudentAdvisors);
-    expect(checkSatByDP(copyCNF(cnf1)), equals(SatResult.unsat));
-    expect(checkSatByDPLL(copyCNF(cnf1)), equals(SatResult.unsat));
+    expect(checkSatByDP(copyCNF(cnf1)).satisfiable, isFalse);
+    expect(checkSatByDPLL(copyCNF(cnf1)).satisfiable, isFalse);
 
-    // Solve binary addition.
+    // Solve binary addition with DP.
     final cnf2 = buildBinaryAdditionCNF(42, 24, 8);
-    expect(checkSatByDP(copyCNF(cnf2)), equals(SatResult.sat));
-    expect(checkSatByDPLL(copyCNF(cnf2)), equals(SatResult.sat));
+    expect(checkSatByDP(copyCNF(cnf2)).satisfiable, isTrue);
+
+    // Solve binary addition with DPLL and check resulting assignment.
+    final result = checkSatByDPLL(copyCNF(cnf2), assign: {});
+    expect(result.satisfiable, isTrue);
+    expect(evaluateCNF(cnf2, result.assignment), isTrue);
+
+    // Convert the result back into an integer value for d.
+    var d = 0;
+    final assign = result.assignment.map((k, v) => MapEntry(cnf2.labels[k], v));
+    for (var i = 0; i < 8; i++) {
+      d ^= (assign['d_${8 - i}'] ? 1 : 0) << i;
+    }
+    expect(d, equals(42 + 24));
   });
 }
