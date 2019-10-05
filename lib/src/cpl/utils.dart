@@ -28,6 +28,10 @@ List<T> toUniqueList<T>(Iterable<T> iterable) {
   return output;
 }
 
+/// Compose a list of [transformers].
+T Function(T) compose<T>(List<T Function(T)> transformers) =>
+    (x) => transformers.fold(x, (x, t) => t(x));
+
 /// Exception for CPL processing
 class CplException implements Exception {
   final String message;

@@ -22,7 +22,10 @@ List<Expr> compileCplToCnf(String input,
 
   // Transform to CNF clauses.
   if (tseytin) {
-    final bonf = rewriteAnyToBonf(expr);
+    // We could rewrite using De Morgan's laws to get fewer clauses (by
+    // eliminating some negation sub-formulas), but this advantage is probably
+    // minimal and it isn't clear this creates a CNF that is easier to solve.
+    final bonf = rewriteAnyToBonf(removeDoubleNegations(expr));
     return transformBonfTo3CnfWithTseytin(bonf);
   } else {
     final nnf = rewriteCdnnfToNnf(rewriteAnyToCdnnf(expr));

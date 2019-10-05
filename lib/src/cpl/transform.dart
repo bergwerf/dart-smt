@@ -9,10 +9,7 @@ part of smt.cpl;
 Expr rewriteAnyToCdnnf(Expr x) {
   if (x.isImply) {
     // (P -> Q) <-> (~P \/ Q)
-    return rewriteAnyToCdnnf(Expr(ExprType.or, [
-      Expr(ExprType.not, [x.arguments[0]]),
-      x.arguments[1]
-    ]));
+    return rewriteAnyToCdnnf(Expr.or([_neg(x.arguments[0]), x.arguments[1]]));
   } else if (x.isIff) {
     // Convert to implications.
     final a = x.arguments;
@@ -25,25 +22,32 @@ Expr rewriteAnyToCdnnf(Expr x) {
 /// Rewrite any expression [x] to Binary Operator Normal Form (BONF). That is,
 /// replace all n-ary operators (and, or, iff), with nested binary operators.
 Expr rewriteAnyToBonf(Expr x) {
-  //
+  final a = x.arguments.map(rewriteAnyToBonf).toList();
+  if (a.length > 2) {
+    return a.sublist(2).fold(Expr(x.type, [a[0], a[1]]),
+        (x, argument) => Expr(x.type, [x, argument]));
+  } else {
+    return Expr(x.type, a, x.label, x.index);
+  }
 }
 
 /// Rewrite an expression [x] in CDNNF to Negation Normal Form (NNF). That is,
-/// use De Morgan's laws to put negation only at the expression leaves.
+/// use De Morgan's laws to put negation only at the expression leaves. You can
+/// also input an expression that is not in CDNNF to get a partial NNF (and
+/// eliminate double negations).
 Expr rewriteCdnnfToNnf(Expr x) {
-  assert(x.type.index <= ExprType.not.index);
   if (x.isNot) {
     // If the argument is a conjunction or disjunction, apply a transformation.
     // If the argument is a negation, then cancel the negation.
-    final arg = x.arguments[0];
-    if (arg.isAnd) {
-      final distr = Expr(ExprType.or, arg.arguments.map(negateExpr).toList());
+    final p = x.arguments[0];
+    if (p.isAnd) {
+      final distr = Expr.or(p.arguments.map(_neg).toList());
       return rewriteCdnnfToNnf(distr);
-    } else if (arg.isOr) {
-      final distr = Expr(ExprType.and, arg.arguments.map(negateExpr).toList());
+    } else if (p.isOr) {
+      final distr = Expr.and(p.arguments.map(_neg).toList());
       return rewriteCdnnfToNnf(distr);
-    } else if (arg.isNot) {
-      return rewriteCdnnfToNnf(arg.arguments[0]);
+    } else if (p.isNot) {
+      return rewriteCdnnfToNnf(p.arguments[0]);
     }
   }
   // In the default case, convert all arguments.
@@ -77,7 +81,7 @@ List<Expr> transformNnfToCnfWithProducts(Expr x) {
         return cnfs.reduce((cnfA, cnfB) {
           return cnfA.expand((clauseA) {
             return cnfB.map((clauseB) {
-              return Expr(ExprType.or, [clauseA, clauseB]);
+              return Expr.or([clauseA, clauseB]);
             }).toList();
           }).toList();
         });
@@ -94,5 +98,108 @@ List<Expr> transformNnfToCnfWithProducts(Expr x) {
 /// resulting formula is linearly bounded and introduces a linearly bounded
 /// number of new variables.
 List<Expr> transformBonfTo3CnfWithTseytin(Expr x) {
-  //
+  // Get transformation for the whole formula and add a unit clause for the
+  // literal that describes the whole formula.
+  final t = _tseytinTransform(x, _Seq());
+  t.clauses.add(t.name);
+  return t.clauses;
+}
+
+/// Compute Tseytin transformation for a sub-formula [x].
+_Tseytin _tseytinTransform(Expr x, _Seq seq) {
+  // If this sub-formula is a literal, then the name of this sub-formula is
+  // equal to the literal and there are no extra clauses.
+  if (isLiteral(x)) {
+    return _Tseytin(x, []);
+  }
+
+  // Create variable to name this sub-formula and generate extra clauses.
+  final nD = Expr.indexVar(++seq.i);
+  final a = x.arguments.map((arg) => _tseytinTransform(arg, seq)).toList();
+  final clauses = a.expand((t) => t.clauses).toList();
+  switch (x.type) {
+    case ExprType.not:
+      // nD <-> ~q
+      assert(a.length == 1);
+      final q = a[0].name;
+      // {nD q}, {~nD ~q}
+      clauses.addAll([
+        Expr.or([nD, q]),
+        Expr.or([_neg(nD), _neg(q)])
+      ]);
+      break;
+
+    case ExprType.and:
+      // nD <-> (q /\ r)
+      assert(a.length == 2);
+      final q = a[0].name;
+      final r = a[1].name;
+      // {nD ~q ~r}, {~nD q}, {~nD r}
+      clauses.addAll([
+        Expr.or([nD, _neg(q), _neg(r)]),
+        Expr.or([_neg(nD), q]),
+        Expr.or([_neg(nD), r])
+      ]);
+      break;
+
+    case ExprType.or:
+      // nD <-> (q \/ r)
+      assert(a.length == 2);
+      final q = a[0].name;
+      final r = a[1].name;
+      // {~nD q r}, {nD ~q}, {nD ~r}
+      clauses.addAll([
+        Expr.or([_neg(nD), q, r]),
+        Expr.or([nD, _neg(q)]),
+        Expr.or([nD, _neg(r)])
+      ]);
+      break;
+
+    case ExprType.imply:
+      // nD <-> (q -> r)
+      assert(a.length == 2);
+      final q = a[0].name;
+      final r = a[1].name;
+      // {~nD ~q r}, {nD ~r}, {nD q}
+      clauses.addAll([
+        Expr.or([_neg(nD), _neg(q), r]),
+        Expr.or([nD, _neg(r)]),
+        Expr.or([nD, q])
+      ]);
+      break;
+
+    case ExprType.iff:
+      // nD <-> (q <-> r)
+      assert(a.length == 2);
+      final q = a[0].name;
+      final r = a[1].name;
+      // {nD q r}, {nD ~q ~r}, {~nD q ~r}, {~nD ~q r}
+      clauses.addAll([
+        Expr.or([nD, q, r]),
+        Expr.or([nD, _neg(q), _neg(r)]),
+        Expr.or([_neg(nD), q, _neg(r)]),
+        Expr.or([_neg(nD), _neg(q), r])
+      ]);
+      break;
+
+    default: // ExprType.variable
+      throw StateError('this is a literal');
+  }
+  return _Tseytin(nD, clauses);
+}
+
+/// Shortcut to negate [x]. If [x] is a negation this will return its argument.
+Expr _neg(Expr x) => x.isNot ? x.arguments[0] : Expr.not(x);
+
+/// A sequence number reference that is used to get unique variable indices in
+/// [_tseytinTransform].
+class _Seq {
+  var i = 0;
+}
+
+/// Result of a Tseytin transformation.
+class _Tseytin {
+  final Expr name;
+  final List<Expr> clauses;
+  _Tseytin(this.name, this.clauses);
 }

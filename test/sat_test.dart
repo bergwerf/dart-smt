@@ -76,14 +76,17 @@ CNF compileCNF(String input, {Map<String, bool> assign, bool tseytin: false}) {
 }
 
 /// Build CNF that represents an [n]-bit binary addition of [a] and [b].
-CNF buildBinaryAddCNF(int a, int b, int n) {
+CNF buildBinaryAddCNF(int a, int b, int n,
+    {bool negate: false, bool tseytin: false}) {
   // Generate assignment for bits in a and b.
   final assignment = <String, bool>{};
   for (var i = 0; i < n; i++) {
     assignment['a_${n - i}'] = ((a >> i) & 1) == 1;
     assignment['b_${n - i}'] = ((b >> i) & 1) == 1;
   }
-  return compileCNF('$arithmeticMacros (add $n a b)', assign: assignment);
+  final adder = negate ? '(~ (add $n a b))' : '(add $n a b)';
+  return compileCNF('$arithmeticMacros $adder',
+      assign: assignment, tseytin: tseytin);
 }
 
 void main() {
@@ -109,5 +112,9 @@ void main() {
       d ^= (assign['d_${8 - i}'] ? 1 : 0) << i;
     }
     expect(d, equals(42 + 24));
+
+    // Solve negation of binary addition with Tseytin transformation and DPLL.
+    final cnf3 = buildBinaryAddCNF(42, 24, 8, negate: true, tseytin: true);
+    expect(checkSatByDPLL(copyCNF(cnf3)).satisfiable, isFalse);
   });
 }
