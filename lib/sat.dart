@@ -5,6 +5,7 @@
 /// SAT solver
 library smt.sat;
 
+import 'dart:math';
 import 'package:smt/cpl.dart';
 
 part 'src/sat/cnf.dart';

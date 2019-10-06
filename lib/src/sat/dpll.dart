@@ -161,7 +161,7 @@ void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
       }
 
       // Remove variable from CNF variable list.
-      assert(!getVariablesInCNF(cnf.clauses).contains(variable));
+      assert(!getVariablesInClauses(cnf.clauses).contains(variable));
       cnf.variables.remove(variable);
 
       // We may have created new unit clauses.

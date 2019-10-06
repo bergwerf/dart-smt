@@ -13,17 +13,22 @@ class CNF3 {
 
   /// For any literal, store which literal is implied. This stores all double
   /// clauses. For any clause {p q}, the map contains ~p => q, ~q => p.
-  final Map<int, int> doubleClauses;
+  final Map<int, List<int>> doubleClauses;
 
   /// For any pair of literals, find which third literal is implied (if any).
   /// For any clause {p q r} with p < q < r, the map contains: (~p ~q) => r,
   /// (~p ~r) => q, (~q ~r) => p. With ordered pairs we get a 2x compression.
-  final Map<OrderedLiteralPair, int> tripleClauses;
+  final Map<OrderedLiteralPair, List<int>> tripleClauses;
 
   /// Variable labels
   final Map<int, String> labels;
 
-  CNF3(this.variables, this.doubleClauses, this.tripleClauses, this.labels);
+  CNF3(this.variables, this.doubleClauses, this.tripleClauses, this.labels)
+      : assert(!mmContainsEmpty(doubleClauses)),
+        assert(!mmContainsEmpty(tripleClauses));
+
+  /// Compute number of clauses this CNF represents.
+  int get length => mmLength(doubleClauses) ~/ 2 + mmLength(tripleClauses) ~/ 3;
 }
 
 /// A pair of literals stored as signed integers where the sign means negation.
@@ -60,14 +65,17 @@ class OrderedLiteralPair {
 
   @override
   bool operator ==(x) => x is OrderedLiteralPair && x.p == p && x.q == q;
+
+  @override
+  String toString() => '{$p $q}';
 }
 
 /// Convert list of [clauses] to a 3-CNF instance and convert all unit clauses
 /// to CDCL rules.
 Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
   final variables = <int>{};
-  final doubleClauses = <int, int>{};
-  final tripleClauses = <OrderedLiteralPair, int>{};
+  final doubleClauses = <int, List<int>>{};
+  final tripleClauses = <OrderedLiteralPair, List<int>>{};
   final labelMap = <String, int>{};
   final indexMap = <int, int>{};
   var vSeq = 0; // Variable identifier sequence
@@ -75,6 +83,7 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
   // Convert literal expression to integer. Note that 0 cannot be used as
   // variable identifier because 0 == -0.
   int convertLiteral(Expr x) {
+    assert(isLiteral(x));
     final n = x.isNot;
     final v = n ? x.arguments[0] : x;
     final i = v.index >= 0
@@ -96,18 +105,18 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
 
       case 2:
         // Add to double clause map unless clause is trivial.
-        if (l[0] != -l[1]) {
-          doubleClauses[-l[0]] = l[1];
-          doubleClauses[-l[1]] = l[0];
+        if (!(l[0] == -l[1])) {
+          mmAdd(doubleClauses, -l[0], l[1]);
+          mmAdd(doubleClauses, -l[1], l[0]);
         }
         break;
 
       case 3:
         // Add to triple clause map unless clause is trivial.
-        if (l[0] != -l[1] && l[0] != -l[2] && l[1] != -l[2]) {
-          tripleClauses[OrderedLiteralPair(-l[0], -l[1])] = l[2];
-          tripleClauses[OrderedLiteralPair(-l[0], -l[2])] = l[1];
-          tripleClauses[OrderedLiteralPair(-l[1], -l[2])] = l[0];
+        if (!(l[0] == -l[1] || l[0] == -l[2] || l[1] == -l[2])) {
+          mmAdd(tripleClauses, OrderedLiteralPair(-l[0], -l[1]), l[2]);
+          mmAdd(tripleClauses, OrderedLiteralPair(-l[0], -l[2]), l[1]);
+          mmAdd(tripleClauses, OrderedLiteralPair(-l[1], -l[2]), l[0]);
         }
         break;
 
@@ -126,7 +135,49 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
   // because we do not know which implications are present. The only performance
   // improvement would be caused by the hash tables using less space, but I
   // don't think this is significant.
+  assert(mmLength(doubleClauses) % 2 == 0);
+  assert(mmLength(tripleClauses) % 3 == 0);
   final labels = invertMap(labelMap);
   final cnf = CNF3(variables, doubleClauses, tripleClauses, labels);
   return Pair(cnf, rules);
+}
+
+/// Convert CNF3 + CDCL rules to CNF for debugging.
+CNF convertCNF3AndRulesToCNF(CNF3 cnf3, List<CDCLRule> rules) {
+  final clauses = <Clause>[];
+  void addClause(List<int> literals) {
+    assert(!literals.any((l) => l == 0));
+    final pos = literals.where((l) => l > 0).toSet();
+    final neg = literals.where((l) => l < 0).map((l) => l.abs()).toSet();
+    clauses.add(Clause(pos, neg));
+  }
+
+  // Process unit clauses.
+  for (final r in rules) {
+    addClause([r.literal]);
+  }
+
+  // Process double clauses.
+  final clauses2 = mmCopy(cnf3.doubleClauses);
+  while (clauses2.isNotEmpty) {
+    final entry = clauses2.entries.first;
+    final p = -entry.key, q = entry.value.first;
+    mmRemove(clauses2, -p, q);
+    mmRemove(clauses2, -q, p);
+    addClause([p, q]);
+  }
+
+  // Process triple clauses.
+  final clauses3 = mmCopy(cnf3.tripleClauses);
+  while (clauses3.isNotEmpty) {
+    final entry = clauses3.entries.first;
+    final p = -entry.key.p, q = -entry.key.q, r = entry.value.first;
+    mmRemove(clauses3, OrderedLiteralPair(-p, -q), r);
+    mmRemove(clauses3, OrderedLiteralPair(-p, -r), q);
+    mmRemove(clauses3, OrderedLiteralPair(-q, -r), p);
+    addClause([p, q, r]);
+  }
+
+  assert(clauses.length == rules.length + cnf3.length);
+  return CNF(clauses, cnf3.labels, cnf3.variables.toList());
 }

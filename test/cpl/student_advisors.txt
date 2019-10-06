@@ -1,0 +1,39 @@
+%% Copyright (c) 2019, Herman Bergwerf. All rights reserved.
+%% Use of this source code is governed by a MIT-style license
+%% that can be found in the LICENSE file.
+
+% Translation to propositions
+(macro good-natured A)
+(macro grumpy (~ A))
+(macro tenured B)
+(macro professor C)
+(macro dynamic D)
+(macro phlegmatic (~ D))
+(macro wearing-cap E)
+(macro smoke F)
+(macro comical G)
+(macro relaxed H)
+(macro nervous (~ H))
+(macro play-stock-market I)
+(macro scholar J)
+(macro creative K)
+(macro plays-slot-machine L)
+(macro student-advisor M)
+
+% We want to test if this is a tautology
+(macro non-smoking-student-advisors (-> (and
+  (-> (/\ #good-natured #tenured #professor) #dynamic)
+  (-> (/\ #grumpy #student-advisor) #plays-slot-machine)
+  (-> (/\ #smoke #wearing-cap) #phlegmatic)
+  (-> (/\ #comical #student-advisor) #professor)
+  (-> (/\ #smoke (~ #tenured)) #nervous)
+  (-> (/\ #phlegmatic #tenured #wearing-cap) #comical)
+  (-> (/\ #student-advisor (~ #play-stock-market)) #scholar)
+  (-> (/\ #relaxed #student-advisor) #creative)
+  (-> (/\ #creative #scholar (~ #plays-slot-machine)) #wearing-cap)
+  (-> (/\ #nervous #smoke) #plays-slot-machine)
+  (-> (/\ #student-advisor #plays-slot-machine) (~ #smoke))
+  (-> (/\ #creative #good-natured #play-stock-market) #wearing-cap)
+  ) (~ (/\ #student-advisor #smoke))))
+
+% Note that he CNF by products of the original question is huge (> 20 million)

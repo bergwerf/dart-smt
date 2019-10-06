@@ -4,75 +4,147 @@
 
 part of smt.sat;
 
+/// Enable rather heavy asserts.
+const _debug = true;
+
 /// Check if 3-CNF [cnf] is satisfiable using a Conflict-Driven-Clause-Learning
 /// (CDCL) algorithm. It is possible to specify a list of rules to start with in
 /// [initialize] (unit resolution is not yet applied on these).
 SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
-  final rules = initialize ?? [];
-  final fixed = <int>{}; // All determined literals.
   final free = cnf.variables.toSet(); // All free (undecided) variables.
+  final fixed = <int, int>{}; // literal => rule index that sets this literal.
+  final rules = initialize ?? [];
 
-  // Add unit propagate rule. This checks if [literal] was already derived or if
-  // it creates a contradiction (in which case we do a backjump). Arguments:
-  // + [literal]: the literal that is derived.
-  // + [currentRule]: index of the rule that is being inspected.
-  // + [secondRule]: index of secondary rule that was used.
-  //
-  // Return value:
-  // + -2: Fail (found UNSAT).
-  // + -1: Continue normally.
-  // + >=0: Stop and continue at this rule index (Backjump).
-  int addUnitPropagate(int literal, int currentRule, [int secondRule = -1]) {
-    assert(secondRule < currentRule);
+  // Add initialized literals to fixed set and check for contradictions.
+  for (var i = 0; i < rules.length; i++) {
+    final p = rules[i].literal;
+    if (fixed.containsKey(-p)) {
+      return SatResult.unsat();
+    }
+    fixed[p] = i;
+    free.remove(p.abs());
+  }
+
+  /// Add unit propagate rule. This checks if [p] was already derived or if it
+  /// creates a contradiction (in which case we do a backjump). Arguments:
+  /// + [p]: Literal that is derived.
+  /// + [decideA], [decideB]: Index of the last decisions this literal was
+  ///   derived with such that [decideA] > [decideB].
+  ///
+  /// Return value:
+  /// + -2: Fail (found UNSAT).
+  /// + -1: Continue normally.
+  /// + >=0: Stop and continue at this rule index (Backjump).
+  int addUnitPropagate(int p, int decideA, [int decideB = -1]) {
+    assert(decideA == -1 || rules[decideA].decide);
+    assert(decideB == -1 || rules[decideB].decide);
+    assert(decideA == -1 || decideA != decideB);
+
     // Check if this literal was already derived.
-    if (fixed.contains(literal)) {
+    if (fixed.containsKey(p)) {
       return -1;
     }
-    // Check if this literal does not cause a contradiction.
-    if (!fixed.contains(-literal)) {
-      rules.add(CDCLRule.unitPropagate(literal, currentRule, secondRule));
-      free.remove(literal.abs());
-      fixed.add(literal);
+
+    // Check if this literal does not contradict the current assignment.
+    final notP = fixed[-p];
+    if (notP == null) {
+      rules.add(CDCLRule.unitPropagate(p, decideA, decideB));
+      fixed[p] = rules.length - 1;
+      free.remove(p.abs());
       return -1;
     }
-    // Try a backjump. This contradiction was caused by the current rule, which
-    // is a result of the last decision (which was clearly wrong). However some
-    // decisions before that may have nothing to do with the derivation of this
-    // contradiction. Therefore we insert the negation of the wrong decision as
-    // early as possible. This prevents the contradiction from being encountered
-    // again under the same unrelated earlier decisions.
+
+    // [p] and [notP] form a contradiction.
     //
-    // Thus, we have to find the last decision p (which is the cause of this
-    // contradiction), clear all consecutive unrelated decisions before that,
-    // and insert a unit propagate rule ~p.
-    // TODO
+    // Try a backjump; [p] was derived using the last decision [lD] (so for this
+    // decision q we can proceed to trying ~q for this branch). However some
+    // decisions before that may have nothing to do with the derivation of [p].
+    // We insert ~q as early as possible. This prevents p from being encountered
+    // again under the same unrelated earlier decisions.
+    final lD = decideA;
+    assert(!_debug || rules.lastIndexWhere((r) => r.decide) == lD);
+    if (lD == -1) {
+      // Fail
+      return -2;
+    }
+
+    // Compute second last decision (slD) this contradiction was based on (we
+    // always have slD != lD). If slD == -1, then p.decideB = -1 and
+    // (notP.decideA = lD = p.decideA, notP.decideB = -1), or notP.decideA = -1.
+    //
+    // There are three scenarios:
+    // + slD == -1. In this case the decision q at [lD] derived both p and ~p
+    //   and we continue with ~q before the first decision.
+    // + slD != -1. In this case we find the next decision (this is either [lD]
+    //   or a decision that was not involved in deriving the contradiction) and
+    //   continue with ~q.
+    final npR = rules[notP];
+    final slD = max(decideB, npR.decideA == lD ? npR.decideB : npR.decideA);
+    var newStart = slD;
+    do {
+      newStart++;
+    } while (!rules[newStart].decide);
+    assert(newStart <= lD);
+
+    // Pop all rules until [newStart].
+    final q = rules[lD].literal;
+    for (var i = rules.length; i > newStart; i--) {
+      final r = rules.removeLast().literal;
+      fixed.remove(r);
+      free.add(r.abs());
+    }
+
+    // Insert backjump rule.
+    assert(rules.length == newStart);
+    rules.add(CDCLRule.unitPropagate(-q, slD, -1));
+    fixed[-q] = newStart;
+    free.remove(q.abs());
+    return rules.length - 2; // Will ++ to process ~q rule.
   }
 
   // Move pointer forward through rules.
+  RULES:
   for (var i = 0; i < rules.length; i++) {
+    // Check if [free] and [fixed] are correct.
+    assert(!_debug || _checkState(cnf.variables, free, fixed, rules));
+
     // Derive all possible unit propagate rules given the i-th rule. Note that
     // [addUnitPropagate] takes care of duplicates and backjumps.
-    final r = rules[i];
-    final result1 = cnf.doubleClauses[-r.literal];
-    if (result1 != null) {
-      final goto = addUnitPropagate(result1, i);
-      if (goto >= 0) {
-        i = goto;
-        continue;
-      } else if (goto == -2) {
-        return SatResult.unsat();
+    final ri = rules[i];
+    final implied1 = cnf.doubleClauses[-ri.literal];
+    if (implied1 != null) {
+      // Add unit propagate for all implications.
+      for (final literal in implied1) {
+        final goto = addUnitPropagate(literal, ri.decideA, ri.decideB);
+        if (goto >= 0) {
+          i = goto;
+          continue RULES;
+        } else if (goto == -2) {
+          return SatResult.unsat();
+        }
       }
     }
     for (var j = 0; j < i; j++) {
-      final pair = OrderedLiteralPair(-r.literal, -rules[j].literal);
-      final result2 = cnf.tripleClauses[pair];
-      if (result2 != null) {
-        final goto = addUnitPropagate(result2, i, j);
-        if (goto >= 0) {
-          i = goto;
-          continue;
-        } else if (goto == -2) {
-          return SatResult.unsat();
+      final rj = rules[j];
+      final pair = OrderedLiteralPair(-ri.literal, -rj.literal);
+      final implied2 = cnf.tripleClauses[pair];
+      if (implied2 != null) {
+        // Determine secondary decision index for all implications. Note that
+        // since ri was derived after rj, ri.decideA >= rj.decideA.
+        assert(ri.decideA >= rj.decideA);
+        final decideB = max(
+            ri.decideB, // We do not want decideB = ri.decideA
+            ri.decideA == rj.decideA ? rj.decideB : rj.decideA);
+
+        // Add unit propagate for all implications.
+        for (final literal in implied2) {
+          final goto = addUnitPropagate(literal, ri.decideA, decideB);
+          if (goto >= 0) {
+            i = goto;
+            continue RULES;
+          } else if (goto == -2) {
+            return SatResult.unsat();
+          }
         }
       }
     }
@@ -82,9 +154,10 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
     if (i + 1 == rules.length) {
       if (free.isNotEmpty) {
         final p = free.first;
+        // Note that we set this rule to depend on itself.
+        rules.add(CDCLRule.decide(p, i + 1));
+        fixed[p] = i + 1;
         free.remove(p);
-        fixed.add(p);
-        rules.add(CDCLRule.decide(p));
       } else {
         final assignment = Map.fromEntries(rules.map((r) => r.entry));
         return SatResult.sat(assignment);
@@ -94,20 +167,43 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
   throw StateError('algorithm has escaped');
 }
 
+/// Check if state ([all], [free], [fixed], [rules]) is valid (for debugging).
+bool _checkState(
+    Set<int> all, Set<int> free, Map<int, int> fixed, List<CDCLRule> rules) {
+  if (!(fixed.length == rules.length)) {
+    return false;
+  } else if (!(all.length == free.length + fixed.length)) {
+    return false;
+  }
+  for (var i = 0; i < rules.length; i++) {
+    final r = rules[i];
+    final p = r.literal;
+    if (fixed[p] != i || free.contains(p.abs())) {
+      return false;
+    } else if (r.decideA != -1 && !rules[r.decideA].decide) {
+      return false;
+    } else if (r.decideB != -1 && !rules[r.decideB].decide) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class CDCLRule {
   final int literal;
   final bool decide;
 
-  /// Indices of CDCL rules that were used to derive this literal. This is used
-  /// to determine an optimal backjump.
-  final int by1, by2;
+  /// To quickly compute backjumps, we store the index of the last two decisions
+  /// this rule is based on. [decideB] should be less than [decideA].
+  final int decideA, decideB;
 
-  CDCLRule.unitPropagate(this.literal, this.by1, this.by2) : decide = false;
+  CDCLRule.unitPropagate(this.literal, this.decideA, this.decideB)
+      : decide = false,
+        assert(decideA == -1 || decideA > decideB);
 
-  CDCLRule.decide(this.literal)
+  CDCLRule.decide(this.literal, this.decideA)
       : decide = true,
-        by1 = -1,
-        by2 = -1;
+        decideB = -1;
 
   // Get entry for an assignment map.
   MapEntry<int, bool> get entry => MapEntry(literal.abs(), !literal.isNegative);

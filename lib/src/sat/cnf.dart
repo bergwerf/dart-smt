@@ -41,7 +41,7 @@ class CNF {
   final Map<int, String> labels;
 
   CNF(this.clauses, [this.labels, List<int> variables])
-      : variables = variables ?? getVariablesInCNF(clauses);
+      : variables = variables ?? getVariablesInClauses(clauses);
 
   /// Compute size (summed size of all clauses).
   int get size => clauses.fold(0, (n, c) => n + c.size);
@@ -72,9 +72,8 @@ CNF copyCNF(CNF cnf) => CNF(
     cnf.variables.toList());
 
 /// Compute list of unique variables in [clauses].
-List<int> getVariablesInCNF(List<Clause> clauses) {
-  return clauses.expand((c) => c.pos.union(c.neg)).toSet().toList();
-}
+List<int> getVariablesInClauses(List<Clause> clauses) =>
+    clauses.expand((c) => c.pos.union(c.neg)).toSet().toList();
 
 /// Evaluate [cnf] for the given [assignment] (for testing purposes).
 bool evaluateCNF(CNF cnf, Map<int, bool> assignment) {
