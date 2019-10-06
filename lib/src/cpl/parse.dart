@@ -35,8 +35,20 @@ class CplTerm {
   final int number;
   final List<CplTerm> terms;
 
-  CplTerm(this.type, {this.name: '', this.number: 0, List<CplTerm> terms})
-      : terms = terms ?? List<CplTerm>();
+  CplTerm.name(this.name)
+      : type = CplTermType.name,
+        number = 0,
+        terms = [];
+
+  CplTerm.number(this.number)
+      : type = CplTermType.number,
+        name = '',
+        terms = [];
+
+  CplTerm.tuple(this.terms)
+      : type = CplTermType.tuple,
+        name = '',
+        number = 0;
 
   bool get isName => type == CplTermType.name;
   bool get isNumber => type == CplTermType.number;
@@ -62,8 +74,16 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
 
   for (final t in tokens) {
     switch (t.type) {
+      case CplTokenType.name:
+        top().terms.add(CplTerm.name(t.name));
+        break;
+
+      case CplTokenType.number:
+        top().terms.add(CplTerm.number(t.number));
+        break;
+
       case CplTokenType.open:
-        queue.add(CplTerm(CplTermType.tuple));
+        queue.add(CplTerm.tuple([]));
         break;
 
       case CplTokenType.close:
@@ -78,14 +98,6 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
           topLevel.add(tuple);
         }
         break;
-
-      case CplTokenType.name:
-        top().terms.add(CplTerm(CplTermType.name, name: t.name));
-        break;
-
-      case CplTokenType.number:
-        top().terms.add(CplTerm(CplTermType.number, number: t.number));
-        break;
     }
   }
 
@@ -97,7 +109,7 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
 List<CplToken> tokenizeCpl(String input) {
   final whitespaceRe = RegExp(r'[\t ]*');
   final commentRe = RegExp(r'%[^\n]*');
-  final numberRe = RegExp(r'[0-9]+');
+  final numberRe = RegExp(r'([0-9]+)[\s%()]');
   final nameRe = RegExp(r'[^()\s]+');
   final tokens = <CplToken>[];
 
@@ -131,9 +143,9 @@ List<CplToken> tokenizeCpl(String input) {
         // This could be a number.
         final m1 = numberRe.matchAsPrefix(input, i);
         if (m1 != null) {
-          final number = int.parse(m1.group(0));
+          final number = int.parse(m1.group(1));
           tokens.add(CplToken(CplTokenType.number, ln, col, number: number));
-          i = m1.end - 1;
+          i = m1.end - 2; // Also subtract terminating character.
           break;
         }
         // There must be a name here.

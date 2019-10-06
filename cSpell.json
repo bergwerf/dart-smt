@@ -13,6 +13,7 @@
     "Loveland",
     "multimap",
     "nullary",
+    "satisfiability",
     "sublist",
     "tseytin",
     "unsat"

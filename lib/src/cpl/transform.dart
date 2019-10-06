@@ -23,12 +23,17 @@ Expr rewriteAnyToCdnnf(Expr x) {
 /// replace all n-ary operators (and, or, iff), with nested binary operators.
 Expr rewriteAnyToBonf(Expr x) {
   final a = x.arguments.map(rewriteAnyToBonf).toList();
+  // Nest n-ary operators.
   if (a.length > 2) {
     return a.sublist(2).fold(Expr(x.type, [a[0], a[1]]),
         (x, argument) => Expr(x.type, [x, argument]));
-  } else {
-    return Expr(x.type, a, x.label, x.index);
   }
+  // Unwrap unary and/or/iff.
+  if (a.length == 1 && (x.isAnd || x.isOr || x.isIff)) {
+    return a[0];
+  }
+  // Else retain expression structure.
+  return Expr(x.type, a, x.label, x.index);
 }
 
 /// Rewrite an expression [x] in CDNNF to Negation Normal Form (NNF). That is,

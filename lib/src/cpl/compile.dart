@@ -69,12 +69,14 @@ CplTerm applyMacro(String name, CplMacro macro, CplTerm term) {
   // Check for a macro instance with arguments. The parser should throw on empty
   // tuples. Note that in general all tuples are expected to start with a name.
   if (term.isTuple) {
-    if (extractName(term.terms[0]) == name) {
-      return macro(term.terms.sublist(1));
+    // Apply macro to all sub-terms.
+    final subTerms = term.terms.map((t) => applyMacro(name, macro, t)).toList();
+
+    // Compute macro for this tuple if it starts with the macro name.
+    if (extractName(subTerms[0]) == name) {
+      return macro(subTerms.sublist(1));
     } else {
-      // Apply macro to all sub-terms.
-      return CplTerm(CplTermType.tuple,
-          terms: term.terms.map((t) => applyMacro(name, macro, t)).toList());
+      return CplTerm.tuple(subTerms);
     }
   }
   // The term remains unaltered.
@@ -93,8 +95,8 @@ CplTerm substituteName(String name, CplTerm replace, CplTerm term) {
       if (parts.contains(name)) {
         if (replace.type != CplTermType.tuple) {
           final r = replace.isName ? replace.name : '${replace.number}';
-          return CplTerm(CplTermType.name,
-              name: parts.map((str) => str == name ? r : str).join('_'));
+          final str = parts.map((str) => str == name ? r : str).join('_');
+          return CplTerm.name(str);
         }
         // In case the replacement term is a tuple..
         throw const CplException('can not substitute tuples in compound names');
@@ -104,10 +106,9 @@ CplTerm substituteName(String name, CplTerm replace, CplTerm term) {
 
     case CplTermType.tuple:
       // Process sub-terms.
-      return CplTerm(CplTermType.tuple,
-          terms: term.terms
-              .map((term) => substituteName(name, replace, term))
-              .toList());
+      return CplTerm.tuple(term.terms
+          .map((term) => substituteName(name, replace, term))
+          .toList());
 
     default: // CplTermType.number
       return term;

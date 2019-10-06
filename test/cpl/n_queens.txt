@@ -1,0 +1,29 @@
+%% Copyright (c) 2019, Herman Bergwerf. All rights reserved.
+%% Use of this source code is governed by a MIT-style license
+%% that can be found in the LICENSE file.
+
+% At least one queen in row [i] of size [n].
+(macro row-at-least-one (i n) (\/* j 1 n p_i_j))
+
+% At most one queen in row [i] of size [n].
+(macro row-at-most-one (i n) (/\** 1 j k n (\/ (~ p_i_j) (~ p_i_k))))
+
+% At most one queen in collumn [j] of size [n].
+(macro col-at-most-one (j n) (/\** 1 i k n (\/ (~ p_i_j) (~ p_k_j))))
+
+% At most one queen in every diagonal. For two squares (i, j) != (i', j'), they
+% are on the same diagonal if i + j = i' + j' or i - j = i' - j'.
+(macro diag-at-most-one (n) (/\** 1 i i' n (/\** 1 j j' n
+  (if (calc i j + i' j' + = i j - i' j' - = or) (\/ (~ p_i_j) (~ p_i'_j')))
+)))
+
+% Complete formula that describes a valid configuration for a board of size [n].
+(macro n-queens (n) (/\
+  (/\* i 1 n (row-at-least-one i n))
+  (/\* i 1 n (row-at-most-one i n))
+  (/\* j 1 n (col-at-most-one j n))
+  (diag-at-most-one n)
+))
+
+% 8-queens problem
+(macro 8-queens (n-queens 8))

@@ -144,7 +144,7 @@ CDCLInput convertClausesToCDCLInput(List<Expr> clauses) {
 }
 
 /// Convert CNF3 + CDCL rules to CNF for debugging.
-CNF converCDCLInputToCNF(CDCLInput input) {
+CNF convertCDCLInputToCNF(CDCLInput input) {
   final clauses = <Clause>[];
   void addClause(List<int> literals) {
     assert(!literals.any((l) => l == 0));

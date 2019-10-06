@@ -58,10 +58,11 @@ class Expr {
 }
 
 /// Convert [term] to expression given it contains only tuples of the form:
+/// + `(empty)`
 /// + `(and .*)` or `(/\ .*)`
 /// + `(or .*)` or `(\/ .*)`
 /// + `(not .)` or `(~ .)`
-/// + `(imply . .)` or `(-> . .)`
+/// + `(imply . .)` or `(implies . .)` or `(-> . .)`
 /// + `(iff .*)` or `(<-> .*)`
 /// + `(_ .*)`
 /// + `(? .)`
@@ -84,9 +85,14 @@ Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
       final subTerms = term.terms
           .sublist(1)
           .map((t) => convertCplTermToExpr(t, assignment))
+          .where((t) => t != null)
           .toList();
 
       switch (extractName(term.terms[0])) {
+        case 'empty':
+          cplAssert(() => subTerms.isEmpty);
+          return null;
+
         case 'not':
         case '~':
           cplAssert(() => subTerms.length == 1);
@@ -101,6 +107,7 @@ Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
           return Expr.or(subTerms);
 
         case 'imply':
+        case 'implies':
         case '->':
           cplAssert(() => subTerms.length == 2);
           return Expr.imply(subTerms[0], subTerms[1]);

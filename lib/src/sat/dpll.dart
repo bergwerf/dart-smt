@@ -10,11 +10,13 @@ class SatResult {
   final bool satisfiable;
   final Map<int, bool> assignment;
 
-  SatResult(this.satisfiable, [this.assignment]);
   SatResult.sat([this.assignment]) : satisfiable = true;
   SatResult.unsat()
       : satisfiable = false,
         assignment = null;
+
+  /// Return SAT or UNSAT.
+  String get summary => satisfiable ? 'SAT' : 'UNSAT';
 }
 
 /// Check if [cnf] is satisfiable using the Davis-Putnam-Logemann-Loveland
@@ -37,15 +39,15 @@ SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
     // Choose a variable p.
     final p = cnf.variables.first;
     // Copy CNF and assignment for first search branch.
-    final cnf1 = copyCNF(cnf)..clauses.add(Clause({p}, {}));
-    final assign1 = assign == null ? null : Map.of(assign);
-    final result = checkSatByDPLL(cnf1, assign: assign1);
+    final cnfCopy = copyCNF(cnf)..clauses.add(Clause({p}, {}));
+    final assignCopy = assign == null ? null : Map.of(assign);
+    final result = checkSatByDPLL(cnfCopy, assign: assignCopy);
     if (result.satisfiable) {
       return result;
     } else {
       // Re-use CNF and assignment for second search branch.
-      final cnf2 = copyCNF(cnf)..clauses.add(Clause({}, {p}));
-      return checkSatByDPLL(cnf2, assign: assign);
+      cnf.clauses.add(Clause({}, {p}));
+      return checkSatByDPLL(cnf, assign: assign);
     }
   }
 }
@@ -138,7 +140,7 @@ void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
     if (c.pos.length + c.neg.length == 1) {
       // Check if this is a positive literal and remove the i-th clause.
       final positive = c.pos.isNotEmpty;
-      final variable = positive ? c.pos.single : c.neg.single;
+      final variable = positive ? c.pos.first : c.neg.first;
       cnf.clauses.removeAt(i);
 
       // If an assignment map is given, store an assignment for this variable.

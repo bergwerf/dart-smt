@@ -10,7 +10,7 @@
 % Binary addition constraints
 (macro add-phi (n) (/\* i 1 n (and
   (add-bit a_i b_i c_i d_i)
-  (carry-bit a_i b_i c_i (_ c (sub i 1)))
+  (carry-bit a_i b_i c_i (_ c (calc i 1 -)))
   (add-fits c_0 c_n)
 )))
 

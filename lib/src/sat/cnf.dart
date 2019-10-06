@@ -7,6 +7,8 @@ part of smt.sat;
 /// A clause is a disjunction of literals where each literal is either a
 /// variable or a negation of a variable. Here we represent these more
 /// efficiently using hash tables.
+///
+/// TODO: Use only one set with positive and negative integers.
 class Clause {
   final Set<int> pos, neg;
 
@@ -25,13 +27,13 @@ class Clause {
   bool containsLiteral(bool positive, int variable) =>
       positive ? pos.contains(variable) : neg.contains(variable);
 
-  /// Check if this clause is a subset or equal to [other].
-  bool containsClause(Clause other) =>
-      other.pos.containsAll(pos) && other.neg.containsAll(neg);
-
   /// Remove literal [positive] [variable].
   void removeLiteral(bool positive, int variable) =>
       positive ? pos.remove(variable) : neg.remove(variable);
+
+  /// Check if this clause is a subset or equal to [other].
+  bool containsClause(Clause other) =>
+      other.pos.containsAll(pos) && other.neg.containsAll(neg);
 }
 
 /// A formula in Conjunctive Normal Form
@@ -107,6 +109,7 @@ CNF convertClausesToCNF(List<Expr> clauses) {
 /// Convert disjunction in [expr] to a [Clause].
 Clause convertExprToClause(Map<String, int> labelMap, Expr expr) {
   final literals = flattenExpr(ExprType.or, expr);
+  assert(literals.every(isLiteral));
   final pos = literals.where((l) => l.isVariable);
   final neg = literals.where((l) => l.isNot).map((l) => l.arguments[0]);
   return Clause(_toSet(labelMap, pos), _toSet(labelMap, neg));
