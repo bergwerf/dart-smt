@@ -4,8 +4,8 @@
 
 part of smt.sat;
 
-/// Enable rather heavy asserts.
-const _debug = true;
+/// Control if expensive asserts are enabled.
+var enableCDCLChecking = false;
 
 /// Check if 3-CNF [cnf] is satisfiable using a Conflict-Driven-Clause-Learning
 /// (CDCL) algorithm. It is possible to specify a list of rules to start with in
@@ -13,7 +13,7 @@ const _debug = true;
 SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
   final free = cnf.variables.toSet(); // All free (undecided) variables.
   final fixed = <int, int>{}; // literal => rule index that sets this literal.
-  final rules = initialize ?? [];
+  final rules = initialize?.toList() ?? [];
 
   // Add initialized literals to fixed set and check for contradictions.
   for (var i = 0; i < rules.length; i++) {
@@ -62,7 +62,7 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
     // We insert ~q as early as possible. This prevents p from being encountered
     // again under the same unrelated earlier decisions.
     final lD = decideA;
-    assert(!_debug || rules.lastIndexWhere((r) => r.decide) == lD);
+    assert(!enableCDCLChecking || rules.lastIndexWhere((r) => r.decide) == lD);
     if (lD == -1) {
       // Fail
       return -2;
@@ -86,8 +86,16 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
     } while (!rules[newStart].decide);
     assert(newStart <= lD);
 
-    // Pop all rules until [newStart].
+    // Create backjump rule.
     final q = rules[lD].literal;
+    final bR = CDCLRule.unitPropagate(-q, slD, -1);
+
+    // If slD == -1, check if the backjump retains satisfiability (in other
+    // cases we keep prior decisions and this branch might not be satisfiable).
+    assert(!(enableCDCLChecking && slD == -1) ||
+        _satIsEquivalent(cnf, initialize, rules.sublist(0, newStart)..add(bR)));
+
+    // Pop all rules until [newStart].
     for (var i = rules.length; i > newStart; i--) {
       final r = rules.removeLast().literal;
       fixed.remove(r);
@@ -96,7 +104,7 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
 
     // Insert backjump rule.
     assert(rules.length == newStart);
-    rules.add(CDCLRule.unitPropagate(-q, slD, -1));
+    rules.add(bR);
     fixed[-q] = newStart;
     free.remove(q.abs());
     return rules.length - 2; // Will ++ to process ~q rule.
@@ -106,12 +114,13 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
   RULES:
   for (var i = 0; i < rules.length; i++) {
     // Check if [free] and [fixed] are correct.
-    assert(!_debug || _checkState(cnf.variables, free, fixed, rules));
+    assert(!enableCDCLChecking || //
+        _isValidState(cnf.variables, free, fixed, rules));
 
     // Derive all possible unit propagate rules given the i-th rule. Note that
     // [addUnitPropagate] takes care of duplicates and backjumps.
     final ri = rules[i];
-    final implied1 = cnf.doubleClauses[-ri.literal];
+    final implied1 = cnf.doubleClauses[ri.literal];
     if (implied1 != null) {
       // Add unit propagate for all implications.
       for (final literal in implied1) {
@@ -126,7 +135,7 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
     }
     for (var j = 0; j < i; j++) {
       final rj = rules[j];
-      final pair = OrderedLiteralPair(-ri.literal, -rj.literal);
+      final pair = OrderedLiteralPair(ri.literal, rj.literal);
       final implied2 = cnf.tripleClauses[pair];
       if (implied2 != null) {
         // Determine secondary decision index for all implications. Note that
@@ -168,7 +177,7 @@ SatResult checkSatByCDCL(CNF3 cnf, [List<CDCLRule> initialize]) {
 }
 
 /// Check if state ([all], [free], [fixed], [rules]) is valid (for debugging).
-bool _checkState(
+bool _isValidState(
     Set<int> all, Set<int> free, Map<int, int> fixed, List<CDCLRule> rules) {
   if (!(fixed.length == rules.length)) {
     return false;
@@ -189,6 +198,14 @@ bool _checkState(
   return true;
 }
 
+/// Check if [cnf] has the same satisfiability with [rules1] as with [rules2]
+/// using DDPL (for debugging).
+bool _satIsEquivalent(CNF3 cnf, List<CDCLRule> rules1, List<CDCLRule> rules2) {
+  final r1 = checkSatByDPLL(converCDCLInputToCNF(CDCLInput(cnf, rules1)));
+  final r2 = checkSatByDPLL(converCDCLInputToCNF(CDCLInput(cnf, rules2)));
+  return r1.satisfiable == r2.satisfiable;
+}
+
 class CDCLRule {
   final int literal;
   final bool decide;
@@ -207,4 +224,7 @@ class CDCLRule {
 
   // Get entry for an assignment map.
   MapEntry<int, bool> get entry => MapEntry(literal.abs(), !literal.isNegative);
+
+  @override
+  String toString() => decide ? '$literalᵈ' : '$literal';
 }

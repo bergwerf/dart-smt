@@ -72,7 +72,7 @@ class OrderedLiteralPair {
 
 /// Convert list of [clauses] to a 3-CNF instance and convert all unit clauses
 /// to CDCL rules.
-Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
+CDCLInput convertClausesToCDCLInput(List<Expr> clauses) {
   final variables = <int>{};
   final doubleClauses = <int, List<int>>{};
   final tripleClauses = <OrderedLiteralPair, List<int>>{};
@@ -88,7 +88,7 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
     final v = n ? x.arguments[0] : x;
     final i = v.index >= 0
         ? indexMap.putIfAbsent(v.index, () => ++vSeq)
-        : labelMap.putIfAbsent(x.label, () => ++vSeq);
+        : labelMap.putIfAbsent(v.label, () => ++vSeq);
     variables.add(i);
     return n ? -i : i;
   }
@@ -137,13 +137,14 @@ Pair<CNF3, List<CDCLRule>> convertClausesToCNF3(List<Expr> clauses) {
   // don't think this is significant.
   assert(mmLength(doubleClauses) % 2 == 0);
   assert(mmLength(tripleClauses) % 3 == 0);
+  assert(labelMap.keys.every((lbl) => lbl.isNotEmpty));
   final labels = invertMap(labelMap);
   final cnf = CNF3(variables, doubleClauses, tripleClauses, labels);
-  return Pair(cnf, rules);
+  return CDCLInput(cnf, rules);
 }
 
 /// Convert CNF3 + CDCL rules to CNF for debugging.
-CNF convertCNF3AndRulesToCNF(CNF3 cnf3, List<CDCLRule> rules) {
+CNF converCDCLInputToCNF(CDCLInput input) {
   final clauses = <Clause>[];
   void addClause(List<int> literals) {
     assert(!literals.any((l) => l == 0));
@@ -153,12 +154,12 @@ CNF convertCNF3AndRulesToCNF(CNF3 cnf3, List<CDCLRule> rules) {
   }
 
   // Process unit clauses.
-  for (final r in rules) {
+  for (final r in input.rules) {
     addClause([r.literal]);
   }
 
   // Process double clauses.
-  final clauses2 = mmCopy(cnf3.doubleClauses);
+  final clauses2 = mmCopy(input.cnf.doubleClauses);
   while (clauses2.isNotEmpty) {
     final entry = clauses2.entries.first;
     final p = -entry.key, q = entry.value.first;
@@ -168,7 +169,7 @@ CNF convertCNF3AndRulesToCNF(CNF3 cnf3, List<CDCLRule> rules) {
   }
 
   // Process triple clauses.
-  final clauses3 = mmCopy(cnf3.tripleClauses);
+  final clauses3 = mmCopy(input.cnf.tripleClauses);
   while (clauses3.isNotEmpty) {
     final entry = clauses3.entries.first;
     final p = -entry.key.p, q = -entry.key.q, r = entry.value.first;
@@ -178,6 +179,13 @@ CNF convertCNF3AndRulesToCNF(CNF3 cnf3, List<CDCLRule> rules) {
     addClause([p, q, r]);
   }
 
-  assert(clauses.length == rules.length + cnf3.length);
-  return CNF(clauses, cnf3.labels, cnf3.variables.toList());
+  assert(clauses.length == input.rules.length + input.cnf.length);
+  return CNF(clauses, input.cnf.labels, input.cnf.variables.toList());
+}
+
+/// CNF3 and CDCL initialization rules representing a CDCL input.
+class CDCLInput {
+  final CNF3 cnf;
+  final List<CDCLRule> rules;
+  CDCLInput(this.cnf, this.rules);
 }
