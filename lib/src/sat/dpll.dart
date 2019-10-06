@@ -39,14 +39,14 @@ SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
     // Choose a variable p.
     final p = cnf.variables.first;
     // Copy CNF and assignment for first search branch.
-    final cnfCopy = copyCNF(cnf)..clauses.add(Clause({p}, {}));
+    final cnfCopy = copyCNF(cnf)..clauses.add({p});
     final assignCopy = assign == null ? null : Map.of(assign);
     final result = checkSatByDPLL(cnfCopy, assign: assignCopy);
     if (result.satisfiable) {
       return result;
     } else {
       // Re-use CNF and assignment for second search branch.
-      cnf.clauses.add(Clause({}, {p}));
+      cnf.clauses.add({-p});
       return checkSatByDPLL(cnf, assign: assign);
     }
   }
@@ -65,8 +65,7 @@ SatResult checkSatByDPLL(CNF cnf, {Map<int, bool> assign}) {
 /// only unit clauses left).
 SatResult checkSatByDP(CNF cnf) {
   // Note that neither unit resolution nor intelligent resolution produce new
-  // trivial clauses. Therefore we only have to do this once. We also apply
-  // subsumption once to remove duplicate clauses in the input.
+  // trivial clauses. We apply subsumption once to remove duplicate clauses.
   removeTrivialClauses(cnf);
   applySubsumption(cnf);
 
@@ -79,7 +78,7 @@ SatResult checkSatByDP(CNF cnf) {
     for (var a = 0; a < len; a++) {
       // Check if the a-th clause contains p or ~p.
       final clauseA = cnf.clauses[a];
-      if (!(clauseA.pos.contains(p) || clauseA.neg.contains(p))) {
+      if (!(clauseA.contains(p) || clauseA.contains(-p))) {
         continue;
       }
 
@@ -113,14 +112,11 @@ SatResult checkSatByDP(CNF cnf) {
 
 /// Try to apply resolution on clauses [p] and [q] with respect to variable [v]
 /// and check if the resulting clause is trivially true.
-Clause tryResolution(Clause p, Clause q, int v) {
+Set<int> tryResolution(Set<int> p, Set<int> q, int v) {
   // Check if one clause contains v and the other ~v.
-  if ((p.pos.contains(v) && q.neg.contains(v)) ||
-      (p.neg.contains(v) && q.pos.contains(v))) {
-    // Check if the disjunction is trivially true.
-    final disjunction = Clause(p.pos.union(q.pos), p.neg.union(q.neg));
-    disjunction.pos.remove(v);
-    disjunction.neg.remove(v);
+  if ((p.contains(v) && q.contains(-v)) || (p.contains(-v) && q.contains(v))) {
+    // Check if the disjunction of p and q is trivially true.
+    final disjunction = p.union(q)..remove(v)..remove(-v);
     if (!isTriviallyTrue(disjunction)) {
       return disjunction;
     }
@@ -137,34 +133,30 @@ Clause tryResolution(Clause p, Clause q, int v) {
 void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
   for (var i = 0; i < cnf.clauses.length; i++) {
     final c = cnf.clauses[i];
-    if (c.pos.length + c.neg.length == 1) {
-      // Check if this is a positive literal and remove the i-th clause.
-      final positive = c.pos.isNotEmpty;
-      final variable = positive ? c.pos.first : c.neg.first;
+    if (c.length == 1) {
+      // Get literal and remove the i-th clause.
+      final p = c.first;
       cnf.clauses.removeAt(i);
 
       // If an assignment map is given, store an assignment for this variable.
       if (assignment != null) {
-        assignment[variable] = positive;
+        assignment[p.abs()] = p > 0;
       }
 
-      // Remove clauses that contain this literal.
+      // + Remove inverted literal from all clauses.
+      // + Remove clauses that contain this literal.
       for (var j = 0; j < cnf.clauses.length; j++) {
         final clause = cnf.clauses[j];
-        if (clause.containsLiteral(positive, variable)) {
-          cnf.clauses.removeAt(j);
+        clause.remove(-p); // Remove inverted literal.
+        if (clause.contains(p)) {
+          cnf.clauses.removeAt(j); // Remove clause if it contains this literal.
           j--;
         }
       }
 
-      // Remove inverted literal from all clauses.
-      for (final clause in cnf.clauses) {
-        clause.removeLiteral(!positive, variable);
-      }
-
       // Remove variable from CNF variable list.
-      assert(!getVariablesInClauses(cnf.clauses).contains(variable));
-      cnf.variables.remove(variable);
+      assert(!getVariablesInClauses(cnf.clauses).contains(p.abs()));
+      cnf.variables.remove(p.abs());
 
       // We may have created new unit clauses.
       i = 0;
@@ -175,14 +167,15 @@ void applyUnitResolution(CNF cnf, [Map<int, bool> assignment]) {
 /// Apply subsumption to [cnf].
 void applySubsumption(CNF cnf) {
   cnf.clauses.removeWhere((c1) {
-    return cnf.clauses.any((c2) => c1 != c2 && c2.containsClause(c1));
+    // Check if any other clause contains all literals in this clause.
+    return cnf.clauses.any((c2) => c1 != c2 && c2.containsAll(c1));
   });
   updateCNFVariables(cnf);
 }
 
-/// Check if [clause] is trivially true (if it contains P and ~P for some P).
-bool isTriviallyTrue(Clause clause) {
-  return clause.pos.intersection(clause.neg).isNotEmpty;
+/// Check if [clause] is trivially true (if it contains p and -p for some p).
+bool isTriviallyTrue(Set<int> clause) {
+  return clause.where((p) => p.isNegative).map((p) => -p).any(clause.contains);
 }
 
 /// Clauses that contain both P and ~P for some variable P can be removed.
@@ -194,5 +187,5 @@ void removeTrivialClauses(CNF cnf) {
 /// Update the variable list of [cnf].
 void updateCNFVariables(CNF cnf) {
   cnf.variables.removeWhere(
-      (v) => !cnf.clauses.any((clause) => clause.containsVariable(v)));
+      (v) => !cnf.clauses.any((c) => c.contains(v) || c.contains(-v)));
 }

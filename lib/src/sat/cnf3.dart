@@ -4,9 +4,10 @@
 
 part of smt.sat;
 
-/// An optimized 3-CNF for 3SAT problems. All unit clauses should be removed
-/// before the creation of this CNF resulting in only [doubleClauses] and
-/// [tripleClauses].
+/// An optimized 3-CNF for 3SAT problems
+///
+/// All unit clauses should be removed before the creation of this CNF resulting
+/// in only [doubleClauses] and [tripleClauses].
 class CNF3 {
   /// All variables.
   final Set<int> variables;
@@ -145,17 +146,11 @@ CDCLInput convertClausesToCDCLInput(List<Expr> clauses) {
 
 /// Convert CNF3 + CDCL rules to CNF for debugging.
 CNF convertCDCLInputToCNF(CDCLInput input) {
-  final clauses = <Clause>[];
-  void addClause(List<int> literals) {
-    assert(!literals.any((l) => l == 0));
-    final pos = literals.where((l) => l > 0).toSet();
-    final neg = literals.where((l) => l < 0).map((l) => l.abs()).toSet();
-    clauses.add(Clause(pos, neg));
-  }
+  final clauses = <Set<int>>[];
 
   // Process unit clauses.
   for (final r in input.rules) {
-    addClause([r.literal]);
+    clauses.add({r.literal});
   }
 
   // Process double clauses.
@@ -165,7 +160,7 @@ CNF convertCDCLInputToCNF(CDCLInput input) {
     final p = -entry.key, q = entry.value.first;
     mmRemove(clauses2, -p, q);
     mmRemove(clauses2, -q, p);
-    addClause([p, q]);
+    clauses.add({p, q});
   }
 
   // Process triple clauses.
@@ -176,7 +171,7 @@ CNF convertCDCLInputToCNF(CDCLInput input) {
     mmRemove(clauses3, OrderedLiteralPair(-p, -q), r);
     mmRemove(clauses3, OrderedLiteralPair(-p, -r), q);
     mmRemove(clauses3, OrderedLiteralPair(-q, -r), p);
-    addClause([p, q, r]);
+    clauses.add({p, q, r});
   }
 
   assert(clauses.length == input.rules.length + input.cnf.length);
