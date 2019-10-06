@@ -14,20 +14,17 @@ void main() {
     // Compiling
     t.reset();
     final cnf = compileCNF('(n-queens $n)', libs: ['cpl/n_queens.txt']);
-    print('Compiled DP/DPLL CNF in ${t.elapsedMilliseconds}ms');
+    print('Compiled DPLL CNF in ${t.elapsedMilliseconds}ms');
     t.reset();
     final ci = compileCDCLInput('(n-queens $n)', libs: ['cpl/n_queens.txt']);
     print('Compiled CDCL 3-CNF in ${t.elapsedMilliseconds}ms');
 
     // Checking
     t.reset();
-    final r1 = checkSatByDP(cnf);
-    print('Solved in ${t.elapsedMilliseconds}ms by DP (${r1.summary})');
+    final r1 = checkSatByDPLL(cnf, assign: {});
+    print('Solved in ${t.elapsedMilliseconds}ms by DPLL (${r1.summary})');
     t.reset();
-    final r2 = checkSatByDPLL(cnf, assign: {});
-    print('Solved in ${t.elapsedMilliseconds}ms by DPLL (${r2.summary})');
-    t.reset();
-    final r3 = checkSatByCDCL(ci);
-    print('Solved in ${t.elapsedMilliseconds}ms by CDCL (${r3.summary})');
+    final r2 = checkSatByCDCL(ci);
+    print('Solved in ${t.elapsedMilliseconds}ms by CDCL (${r2.summary})');
   }
 }

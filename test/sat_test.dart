@@ -18,10 +18,6 @@ void main() {
       assign: intToBits(8, {'a': 42, 'b': 24}),
       tseytin: false);
 
-  // Negation of binary addition: UNSAT
-  final testBinAddNeg = compileCNF('(~ (add 8 a b))',
-      libs: ['cpl/binary_add.txt'], assign: intToBits(8, {'a': 42, 'b': 24}));
-
   // 8-queens problem: SAT
   final test8queens = compileCNF('(8-queens)', libs: ['cpl/n_queens.txt']);
 
@@ -29,15 +25,13 @@ void main() {
   test('checkSatByDP', () {
     expect(checkSatByDP(copyCNF(testAdvisors)).satisfiable, isFalse);
     expect(checkSatByDP(copyCNF(testBinAdd)).satisfiable, isTrue);
-    //expect(checkSatByDP(copyCNF(testBinAddNeg)).satisfiable, isFalse);
-    //expect(checkSatByDP(copyCNF(test8queens)).satisfiable, isTrue);
+    // test8queens take too much time
   });
 
   // Check DPLL algorithm on some cases.
   test('checkSatByDPLL', () {
     expect(checkSatByDPLL(copyCNF(testAdvisors)).satisfiable, isFalse);
-    expect(checkSatByDPLL(copyCNF(testBinAddNeg)).satisfiable, isFalse);
-    //expect(checkSatByDPLL(copyCNF(test8queens)).satisfiable, isTrue);
+    expect(checkSatByDPLL(copyCNF(test8queens)).satisfiable, isTrue);
 
     // Solve binary addition and check resulting assignment.
     final result = checkSatByDPLL(copyCNF(testBinAdd), assign: {});
