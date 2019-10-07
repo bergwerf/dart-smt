@@ -20,8 +20,12 @@ Map<K, List<V>> mmCopy<K, V>(Map<K, List<V>> multimap) =>
     multimap.map((k, v) => MapEntry(k, v.toList()));
 
 /// Add ([key], [value]) to [multimap].
-void mmAdd<K, V>(Map<K, List<V>> multimap, K key, V value) =>
-    multimap.putIfAbsent(key, () => []).add(value);
+void mmAdd<K, V>(Map<K, List<V>> multimap, K key, V value) {
+  final l = multimap.putIfAbsent(key, () => []);
+  if (!l.contains(value)) {
+    l.add(value);
+  }
+}
 
 /// Remove ([key], [value]) from [multimap]. Removes [key] if the list is empty.
 void mmRemove<K, V>(Map<K, List<V>> multimap, K key, V value) {
