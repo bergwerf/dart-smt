@@ -13,8 +13,9 @@
 
 % At most one queen in every diagonal. For two squares (i, j) != (i', j'), they
 % are on the same diagonal if i + j = i' + j' or i - j = i' - j'.
-(macro diag-at-most-one (n) (/\** 1 i i' n (/\** 1 j j' n
-  (if (calc i j + i' j' + = i j - i' j' - = or) (\/ (~ p_i_j) (~ p_i'_j')))
+(macro diag-at-most-one (n) (/\** 1 i i' n (/\
+  (/\** 1 j j' n (if (calc i j - i' j' - =) (\/ (~ p_i_j) (~ p_i'_j'))))
+  (/\** 1 j' j n (if (calc i j + i' j' + =) (\/ (~ p_i_j) (~ p_i'_j'))))
 )))
 
 % Complete formula that describes a valid configuration for a board of size [n].

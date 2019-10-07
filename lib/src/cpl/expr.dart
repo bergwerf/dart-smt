@@ -45,13 +45,13 @@ class Expr {
       case ExprType.not:
         return '(~ ${arguments[0]})';
       case ExprType.and:
-        return '(${arguments.join(" /\\ ")})';
+        return '(/\\ ${arguments.join(' ')})';
       case ExprType.or:
-        return '(${arguments.join(" \\/ ")})';
+        return '(\\/ ${arguments.join(' ')})';
       case ExprType.imply:
-        return '(${arguments.join(" -> ")})';
+        return '(-> ${arguments.join(' ')})';
       case ExprType.iff:
-        return '(${arguments.join(" <-> ")})';
+        return '(<-> ${arguments.join(' ')})';
     }
     return '';
   }
@@ -100,11 +100,11 @@ Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
 
         case 'and':
         case '/\\':
-          return Expr.and(subTerms);
+          return subTerms.isEmpty ? null : Expr.and(subTerms);
 
         case 'or':
         case '\\/':
-          return Expr.or(subTerms);
+          return subTerms.isEmpty ? null : Expr.or(subTerms);
 
         case 'imply':
         case 'implies':

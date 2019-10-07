@@ -106,7 +106,7 @@ CplTerm repeatDoubleIndex(String wrapperName, List<CplTerm> arguments) {
 
   // Generate all sub-terms by substituting both indices.
   final subTerms = <CplTerm>[CplTerm.name(wrapperName)];
-  for (var i = from; i <= to; i++) {
+  for (var i = from; i < to; i++) {
     for (var j = i + 1; j <= to; j++) {
       final body1 = substituteName(index1Name, CplTerm.number(i), body);
       final body2 = substituteName(index2Name, CplTerm.number(j), body1);
