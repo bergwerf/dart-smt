@@ -26,7 +26,8 @@ class CNF3 {
 
   CNF3(this.variables, this.doubleClauses, this.tripleClauses, this.labels)
       : assert(!mmContainsEmpty(doubleClauses)),
-        assert(!mmContainsEmpty(tripleClauses));
+        assert(!mmContainsEmpty(tripleClauses)),
+        assert(!variables.contains(0));
 
   /// Compute number of clauses this CNF represents.
   int get length => mmLength(doubleClauses) ~/ 2 + mmLength(tripleClauses) ~/ 3;
@@ -136,6 +137,7 @@ CDCLInput convertClausesToCDCLInput(List<Expr> clauses) {
   // because we do not know which implications are present. The only performance
   // improvement would be caused by the hash tables using less space, but I
   // don't think this is significant.
+  assert(variables.length == vSeq);
   assert(mmLength(doubleClauses) % 2 == 0);
   assert(mmLength(tripleClauses) % 3 == 0);
   assert(labelMap.keys.every((lbl) => lbl.isNotEmpty));

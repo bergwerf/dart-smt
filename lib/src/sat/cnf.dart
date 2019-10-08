@@ -13,7 +13,8 @@ class CNF {
   final Map<int, String> labels;
 
   CNF(this.clauses, [this.labels, List<int> variables])
-      : variables = variables ?? getVariablesInClauses(clauses);
+      : variables = variables ?? getVariablesInClauses(clauses),
+        assert(!variables.contains(0));
 
   /// Compute size (summed size of all clauses).
   int get size => clauses.fold(0, (n, c) => n + c.length);
@@ -84,5 +85,6 @@ CNF convertClausesToCNF(List<Expr> clauses) {
     }).toSet();
   }).toList();
 
+  assert(variables.length == vSeq);
   return CNF(convertedClauses, invertMap(labelMap), variables.toList());
 }
