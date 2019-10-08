@@ -13,9 +13,11 @@
     "Loveland",
     "multimap",
     "nullary",
+    "polytope",
     "satisfiability",
     "sublist",
     "tseytin",
-    "unsat"
+    "unsat",
+    "writeln"
   ]
 }

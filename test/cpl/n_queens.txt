@@ -8,7 +8,7 @@
 % At most one queen in row [i] of size [n].
 (macro row-at-most-one (i n) (/\** 1 j k n (\/ (~ p_i_j) (~ p_i_k))))
 
-% At most one queen in collumn [j] of size [n].
+% At most one queen in column [j] of size [n].
 (macro col-at-most-one (j n) (/\** 1 i k n (\/ (~ p_i_j) (~ p_k_j))))
 
 % At most one queen in every diagonal. For two squares (i, j) != (i', j'), they
