@@ -15,7 +15,7 @@ enum SimplexResult { unbounded, optimized }
 /// + Constraints for i=1..k:  y_i = b_i + a_i1*x_1 + a_i2*x_2 + ... + a_in*x_n
 ///
 /// Arguments:
-/// + [c]: vector of length n containing all maximization coefficients
+/// + [c]: vector of length n containing all maximization coefficients (0 <= v)
 /// + [a]: matrix of size (n + 1)*k containing all constraints (0 <= b_i)
 /// + [xs]: variable belonging to each x_j
 /// + [ys]: variable belonging to each y_i
@@ -32,6 +32,7 @@ SimplexResult solveSimplex(Vec c, Mat2 a, List<int> xs, List<int> ys) {
   final n = a.width - 1;
   final k = a.height;
   assert(c.length == n + 1);
+  assert(0 <= c[0]);
   assert(a.col(0).every((b) => 0 <= b));
 
   // Note that the following does not crash if n = 0 || k = 0.
