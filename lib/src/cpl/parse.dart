@@ -33,19 +33,19 @@ class CplTerm {
   final CplTermType type;
   final String name;
   final int number;
-  final List<CplTerm> terms;
+  final List<CplTerm> subTerms;
 
   CplTerm.name(this.name)
       : type = CplTermType.name,
         number = 0,
-        terms = [];
+        subTerms = [];
 
   CplTerm.number(this.number)
       : type = CplTermType.number,
         name = '',
-        terms = [];
+        subTerms = [];
 
-  CplTerm.tuple(this.terms)
+  CplTerm.tuple(this.subTerms)
       : type = CplTermType.tuple,
         name = '',
         number = 0;
@@ -54,9 +54,14 @@ class CplTerm {
   bool get isNumber => type == CplTermType.number;
   bool get isTuple => type == CplTermType.tuple;
 
+  /// Get name of this or throw exception if it is not a name.
+  String expectName() => type != CplTermType.name
+      ? throw const CplException('expected a name')
+      : name;
+
   @override
   String toString() =>
-      isName ? name : isNumber ? '$number' : '(${terms.join(" ")})';
+      isName ? name : isNumber ? '$number' : '(${subTerms.join(" ")})';
 }
 
 /// Process [tokens] into a list of AST terms.
@@ -75,11 +80,11 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
   for (final t in tokens) {
     switch (t.type) {
       case CplTokenType.name:
-        top().terms.add(CplTerm.name(t.name));
+        top().subTerms.add(CplTerm.name(t.name));
         break;
 
       case CplTokenType.number:
-        top().terms.add(CplTerm.number(t.number));
+        top().subTerms.add(CplTerm.number(t.number));
         break;
 
       case CplTokenType.open:
@@ -89,11 +94,11 @@ List<CplTerm> parseCpl(List<CplToken> tokens) {
       case CplTokenType.close:
         top();
         final tuple = queue.removeLast();
-        if (tuple.terms.isEmpty) {
+        if (tuple.subTerms.isEmpty) {
           throw const CplException('tuples may not be empty');
         }
         if (queue.isNotEmpty) {
-          queue.last.terms.add(tuple);
+          queue.last.subTerms.add(tuple);
         } else {
           topLevel.add(tuple);
         }

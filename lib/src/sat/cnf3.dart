@@ -123,7 +123,7 @@ CDCLInput convertClausesToCDCLInput(List<Expr> clauses) {
         break;
 
       default:
-        throw new ArgumentError('input is not a 3-CNF');
+        throw ArgumentError('input is not a 3-CNF');
     }
   }
 

@@ -94,7 +94,7 @@ List<Expr> transformNnfToCnfWithProducts(Expr x) {
       return [];
 
     default:
-      throw new ArgumentError('invalid input form');
+      throw ArgumentError('invalid input form');
   }
 }
 

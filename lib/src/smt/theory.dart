@@ -15,7 +15,7 @@ part of smt;
 /// iterative algorithm for checking feasibility.
 abstract class SmtTheory<NormTerm, Value, Term extends SmtTerm<NormTerm>,
     Problem extends SmtProblem<NormTerm, Value>> {
-  /// Convert [CplTerm] to term.
+  /// Convert [CplTerm] to term in this theory or return null.
   Term read(CplTerm term);
 
   /// Check if [term] belongs to this theory.
@@ -30,14 +30,14 @@ abstract class SmtTerm<NormTerm> {
   /// Get list of variable labels that are used in this term.
   List<String> get labels;
 
-  /// Normalize this term given the integer assignment for its [variables].
-  NormTerm normalize(Map<String, int> variables);
+  /// Normalize this term given integer variable [identifiers].
+  NormTerm normalize(Map<String, int> identifiers);
 }
 
 /// A problem instance in an SMT theory.
 abstract class SmtProblem<Constraint, Value> {
-  /// Add new [constraint].
-  void add(Constraint constraint);
+  /// Create copy of this problem with a new [constraint].
+  SmtProblem<Constraint, Value> add(Constraint constraint);
 
   /// Check feasibility of the current constraints.
   bool check();

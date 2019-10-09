@@ -62,7 +62,7 @@ CplTerm computePostfixCalculation(List<CplTerm> arguments) {
           stack.add(l != 0 || r != 0 ? 1 : 0);
           break;
         default:
-          throw new CplException('unrecognized operation ${a.name} in calc');
+          throw CplException('unrecognized operation ${a.name} in calc');
       }
     }
   }
@@ -78,7 +78,7 @@ CplTerm computePostfixCalculation(List<CplTerm> arguments) {
 CplTerm repeatSingleIndex(String wrapperName, List<CplTerm> arguments) {
   cplAssert(() => arguments.length == 4);
   cplAssert(() => arguments[1].isNumber && arguments[2].isNumber);
-  final indexName = extractName(arguments[0]);
+  final indexName = arguments[0].expectName();
   final from = arguments[1].number;
   final to = arguments[2].number;
   final body = arguments[3];
@@ -99,8 +99,8 @@ CplTerm repeatDoubleIndex(String wrapperName, List<CplTerm> arguments) {
   cplAssert(() => arguments.length == 5);
   cplAssert(() => arguments[0].isNumber && arguments[3].isNumber);
   final from = arguments[0].number;
-  final index1Name = extractName(arguments[1]);
-  final index2Name = extractName(arguments[2]);
+  final index1Name = arguments[1].expectName();
+  final index2Name = arguments[2].expectName();
   final to = arguments[3].number;
   final body = arguments[4];
 

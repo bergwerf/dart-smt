@@ -10,6 +10,7 @@ var enableCDCLChecks = false;
 /// Check if a 3-CNF is satisfiable using a Conflict-Driven-Clause-Learning
 /// (CDCL) algorithm. It is possible to specify a list of rules to start with.
 SatResult checkSatByCDCL(CDCLInput input) {
+  final rand = Random();
   final cnf = input.cnf;
   final free = cnf.variables.toSet(); // All free (undecided) variables.
   final fixed = <int, int>{}; // literal => rule index that sets this literal.
@@ -165,7 +166,8 @@ SatResult checkSatByCDCL(CDCLInput input) {
     // there are no free variables left, we have found a satisfying assignment.
     if (i + 1 == rules.length) {
       if (free.isNotEmpty) {
-        final p = free.first;
+        // Randomly choosing a decision turns out to be beneficial.
+        final p = free.elementAt(rand.nextInt(free.length));
         // Note that we set this rule to depend on itself.
         rules.add(CDCLRule.decide(p, i + 1));
         fixed[p] = i + 1;

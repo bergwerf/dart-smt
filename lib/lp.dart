@@ -8,6 +8,8 @@ library smt.lp;
 import 'package:smt/cpl.dart';
 import 'package:smt/mat.dart';
 import 'package:smt/smt.dart';
+import 'package:quiver/core.dart';
+import 'package:quiver/collection.dart';
 
 part 'src/lp/simplex.dart';
 part 'src/lp/theory.dart';

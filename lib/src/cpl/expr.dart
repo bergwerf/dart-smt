@@ -82,13 +82,13 @@ Expr convertCplTermToExpr(CplTerm term, Map<String, bool> assignment) {
 
     case CplTermType.tuple:
       // Generate all sub-terms.
-      final subTerms = term.terms
+      final subTerms = term.subTerms
           .sublist(1)
           .map((t) => convertCplTermToExpr(t, assignment))
           .where((t) => t != null)
           .toList();
 
-      switch (extractName(term.terms[0])) {
+      switch (term.subTerms[0].expectName()) {
         case 'empty':
           cplAssert(() => subTerms.isEmpty);
           return null;

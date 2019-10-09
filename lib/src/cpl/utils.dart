@@ -54,6 +54,10 @@ List<Pair<A, B>> zip<A, B>(List<A> as, List<B> bs) {
   return zipped;
 }
 
+/// Convert [map] to a list of inverted pairs.
+List<Pair<V, K>> convertMapToInvPairs<K, V>(Map<K, V> map) =>
+    map.entries.map((e) => Pair(e.value, e.key)).toList();
+
 /// Convert iterable to list of unique elements (more efficient than using a
 /// hash-table for really small lists such as when generating a 3-CNF).
 List<T> toUniqueList<T>(Iterable<T> iterable) {
@@ -78,7 +82,7 @@ class CplException implements Exception {
 
 /// Pair of two elements
 class Pair<A, B> {
-  final A a;
-  final B b;
-  Pair(this.a, this.b);
+  final A fst;
+  final B snd;
+  Pair(this.fst, this.snd);
 }

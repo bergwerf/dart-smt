@@ -6,5 +6,8 @@ homepage:     https://github.com/bergwerf/dart-smt
 environment:
   sdk:        '>=2.2.0 <3.0.0'
 
+dependencies:
+  quiver:     2.0.5
+
 dev_dependencies:
   test:       any

@@ -36,21 +36,24 @@ Expr compileCplTerms(List<CplTerm> terms, Map<String, bool> assignment) {
 
 /// Compile macro definition in [term] and return it.
 MapEntry<String, CplMacro> compileMacro(CplTerm term) {
-  cplAssert(() => [3, 4].contains(term.terms.length));
-  cplAssert(() => extractName(term.terms[0]) == 'macro');
-  cplAssert(() => term.terms.length == 3 || term.terms[2].isTuple);
+  final t = term.subTerms;
+  cplAssert(() => term.isTuple);
+  cplAssert(() => t[0].expectName() == 'macro');
+  cplAssert(() => t.length == 3 || (t.length == 4 && t[2].isTuple));
 
-  final macroName = extractName(term.terms[1]);
-  final hasArgs = term.terms.length == 4;
-  final argNames = hasArgs ? term.terms[2].terms.map(extractName).toList() : [];
-  final body = term.terms[hasArgs ? 3 : 2];
+  final body = t.last;
+  final macroName = t[1].expectName();
+  final hasArguments = t.length == 4;
+  final argumentNames = hasArguments //
+      ? t[2].subTerms.map((t) => t.expectName()).toList()
+      : <String>[];
 
   CplTerm macro(List<CplTerm> arguments) {
-    if (arguments.length != argNames.length) {
-      throw CplException('expected ${argNames.length} arguments');
+    if (arguments.length != argumentNames.length) {
+      throw CplException('expected ${argumentNames.length} arguments');
     } else {
-      final z = zip(argNames, arguments);
-      return z.fold(body, (term, p) => substituteName(p.a, p.b, term));
+      final z = zip(argumentNames, arguments);
+      return z.fold(body, (term, p) => substituteName(p.fst, p.snd, term));
     }
   }
 
@@ -70,13 +73,13 @@ CplTerm applyMacro(String name, CplMacro macro, CplTerm term) {
   // tuples. Note that in general all tuples are expected to start with a name.
   if (term.isTuple) {
     // Apply macro to all sub-terms.
-    final subTerms = term.terms.map((t) => applyMacro(name, macro, t)).toList();
+    final st = term.subTerms.map((t) => applyMacro(name, macro, t)).toList();
 
     // Compute macro for this tuple if it starts with the macro name.
-    if (extractName(subTerms[0]) == name) {
-      return macro(subTerms.sublist(1));
+    if (st[0].expectName() == name) {
+      return macro(st.sublist(1));
     } else {
-      return CplTerm.tuple(subTerms);
+      return CplTerm.tuple(st);
     }
   }
   // The term remains unaltered.
@@ -106,7 +109,7 @@ CplTerm substituteName(String name, CplTerm replace, CplTerm term) {
 
     case CplTermType.tuple:
       // Process sub-terms.
-      return CplTerm.tuple(term.terms
+      return CplTerm.tuple(term.subTerms
           .map((term) => substituteName(name, replace, term))
           .toList());
 
@@ -114,11 +117,6 @@ CplTerm substituteName(String name, CplTerm replace, CplTerm term) {
       return term;
   }
 }
-
-/// Extract name of [term] or throw if it is not a name.
-String extractName(CplTerm term) => term.type != CplTermType.name
-    ? throw const CplException('expected a name')
-    : term.name;
 
 /// Assert a certain condition or throw.
 void cplAssert(bool condition()) {

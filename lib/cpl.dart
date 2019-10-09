@@ -11,6 +11,7 @@ part 'src/cpl/parse.dart';
 part 'src/cpl/macros.dart';
 part 'src/cpl/compile.dart';
 part 'src/cpl/transform.dart';
+part 'src/cpl/arith.dart';
 
 /// Utility to compile CPL code in [input] given some [assignments], and
 /// transform it to a CNF using either products or a Tseytin transformation.
