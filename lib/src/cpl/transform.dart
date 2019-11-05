@@ -135,6 +135,7 @@ _Tseytin _tseytinTransform(Expr x, _Seq seq) {
       break;
 
     case ExprType.and:
+      // TODO: Retain top-level conjunctions.
       // nD <-> (q /\ r)
       assert(a.length == 2);
       final q = a[0].name;
@@ -148,6 +149,7 @@ _Tseytin _tseytinTransform(Expr x, _Seq seq) {
       break;
 
     case ExprType.or:
+      // TODO: Retain bottom-level clauses.
       // nD <-> (q \/ r)
       assert(a.length == 2);
       final q = a[0].name;

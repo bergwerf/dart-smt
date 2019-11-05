@@ -167,6 +167,7 @@ SatResult checkSatByCDCL(CDCLInput input) {
     if (i + 1 == rules.length) {
       if (free.isNotEmpty) {
         // Randomly choosing a decision turns out to be beneficial.
+        // TODO: Pick variable based on its frequency (occurence).
         final p = free.elementAt(rand.nextInt(free.length));
         // Note that we set this rule to depend on itself.
         rules.add(CDCLRule.decide(p, i + 1));
